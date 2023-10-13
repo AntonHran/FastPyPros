@@ -34,7 +34,6 @@ allowed_remove = RoleAccess([Role.admin])
             description="For all users")
 async def read_users_me(username: str,
                         db: Session = Depends(get_db)):
-
     """
     The read_users_me function will return the user object for a given username.
 
@@ -51,6 +50,18 @@ async def create_account(body: AccountModel,
                          credentials: HTTPAuthorizationCredentials = Security(security),
                          db: Session = Depends(get_db)):
 
+    """
+    The create_account function creates a new account for the user.
+        The function takes in an AccountModel object, which contains the following fields:
+            - name (str): The name of the account.
+            - balance (float): The starting balance of the account.
+
+    :param body: AccountModel: Pass the account model to the function
+    :param credentials: HTTPAuthorizationCredentials: Get the token from the request header
+    :param db: Session: Get the database session
+    :return: A new account object
+    :doc-author: Trelent
+    """
     token = credentials.credentials
     email = await auth_token.decode_refresh_token(token)
     user = await repository_users.get_user_by_email(email, db)
