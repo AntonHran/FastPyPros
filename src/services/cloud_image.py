@@ -29,7 +29,7 @@ class CloudImage:
         :doc-author: Trelent
         """
         name = hashlib.sha256(email.encode("utf-8")).hexdigest()[:12]
-        return f"contact_book/{name}"
+        return f"share_photo/avatar/{name}"
 
     @staticmethod
     def upload(file, public_id: str):
