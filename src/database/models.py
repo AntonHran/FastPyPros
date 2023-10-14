@@ -53,6 +53,7 @@ class Image(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     description = Column(String(50), nullable=False)
     origin_path = Column(String(255), nullable=False)
+    public_id = Column(String, nullable=False)
     transformed_path = Column(String(255), nullable=True)
     qr_path = Column(String(255), nullable=True)
     rating = Column(Float(2), default=0)
