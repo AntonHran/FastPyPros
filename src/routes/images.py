@@ -5,10 +5,8 @@ from sqlalchemy.orm import Session
 from src.database.connection import get_db
 from src.repositories import images as repository_images
 from src.repositories import tags as repository_tags
-from src.repositories import comments as repository_comments
 from src.schemes.images import UpdateImageModel, ImageModel, ResponeUploadFile
 from src.schemes.tags import ResponeTagModel, ResponsTagToImageModel
-from src.database.models import TagToImage
 
 
 
