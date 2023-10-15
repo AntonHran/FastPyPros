@@ -61,12 +61,15 @@ async def login(body: OAuth2PasswordRequestForm = Depends(), db: Session = Depen
     :doc-author: Trelent
     """
     user = await repository_users.get_user_by_email(body.username, db)
+    baned_access = await repository_users.check_ban_list(user.id, db)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_EMAIL)
     # if not user.confirmed:
         # raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.EMAIL_NOT_CONFIRMED)
     if not auth_password.verify_password(body.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_PASSWORD)
+    if baned_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=messages.BAN)
     # generate JWT
     access_token = await auth_token.create_access_token(data={"sub": user.email})
     refresh_token_ = await auth_token.create_refresh_token(data={"sub": user.email})
@@ -190,15 +193,6 @@ async def reset_password(body: PasswordResetModel, db: Session = Depends(get_db)
 async def logout(
         current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)
 ):
-    """
-    The logout function is used to log out the currently authenticated user.
-    It invalidates the user's access token and refresh token.
 
-    :param current_user: User: The currently authenticated user (obtained from JWT)
-    :param db: Session: Get a database session
-    :return: A message indicating successful logout
-    :doc-author: Trelent
-    """
-    await repository_users.invalidate_tokens(current_user, db)
-
+    await repository_users.add_to_ban_list(access_token=current_user.access_token, reason="logout", db=db)
     return {"message": "Logout successful"}

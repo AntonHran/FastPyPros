@@ -1,7 +1,9 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 from libgravatar import Gravatar
 
-from src.database.models import User, Account
+from src.database.models import User, Account, BanList
 from src.schemes.users import UserModel
 from src.schemes.account import AccountModel
 
@@ -61,6 +63,31 @@ async def create_user_account(body: AccountModel, username: str, db: Session):
     return new_account
 
 
+async def update_user_account(username: str, body: AccountModel, db: Session):
+    account = await get_account_by_username(username, db)
+    if account:
+        account.first_name = body.first_name
+        account.last_name = body.last_name
+        account.location = body.location
+        account.company = body.company
+        account.position = body.position
+        account.email - body.email
+        account.phone_number = body.phone_number
+        account.birth_date = body.birth_date
+        account.updated_at = datetime.now()
+        db.commit()
+        db.refresh(account)
+    return account
+
+
+async def remove_account(username: str, db: Session):
+    account = await get_account_by_username(username, db)
+    if account:
+        db.delete(account)
+        db.commit()
+    return account
+
+
 async def update_token(user: User, refresh_token, db: Session):
     """
     The update_token function updates the refresh token for a user in the database.
@@ -76,6 +103,7 @@ async def update_token(user: User, refresh_token, db: Session):
     :doc-author: Trelent
     """
     user.refresh_token = refresh_token
+    user.updated_at = datetime.now()
     db.commit()
 
 
@@ -100,7 +128,6 @@ async def reset_password(user: User, new_password: str, db: Session):
     The reset_password function takes a user and new_password as arguments,
     and updates the password of the user in the database.
 
-
     :param user: User: Get the user object from the database
     :param new_password: str: Pass in the new password
     :param db: Session: Access the database
@@ -108,6 +135,7 @@ async def reset_password(user: User, new_password: str, db: Session):
     :doc-author: Trelent
     """
     user.password = new_password
+    user.updated_at = datetime.now()
     db.commit()
 
 
@@ -123,6 +151,7 @@ async def update_avatar(email: str, url: str, db: Session):
     """
     user = await get_user_by_email(email, db)
     user.avatar = url
+    user.updated_at = datetime.now()
     db.commit()
     return user
 
@@ -189,12 +218,18 @@ async def remove_user(user_id: int, db: Session):
     return user
 
 
-async def invalidate_tokens(user: User, db: Session):  # required to be done!!!!
-    """
-    Invalidate a user's access and refresh tokens.
-
-    :param user: User: The user for whom to invalidate tokens
-    :param db: Session: The database session
-    """
+async def invalidate_tokens(user_id: int, db: Session):  # required to be done!!!!
+    user = await get_user_by_id(user_id, db)
     user.refresh_token = "invalid"
     db.commit()
+
+
+async def add_to_ban_list(access_token: str, reason: str, db: Session):
+    new_record = BanList(access_token=access_token, reason=reason)
+    db.add(new_record)
+    db.commit()
+
+
+async def check_ban_list(user_id: int, db: Session):
+    user = await get_user_by_id(user_id, db)
+    return db.query(BanList).filter_by(access_token=user.access_token).first()

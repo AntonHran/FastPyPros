@@ -20,18 +20,21 @@ class User(Base):
     username = Column(String(50), unique=True)
     email = Column(String(150), nullable=False, unique=True)
     password = Column(String(255), nullable=False, unique=True)
+    access_token = Column(String(255), nullable=True)
     refresh_token = Column(String(255), nullable=True)
     roles = Column("roles", Enum(Role), default=Role.user)
     confirmed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    images = relationship("Image", backref="users")
+    rates_ = relationship("Rating", backref="users")
 
 
 class Account(Base):
     __tablename__ = "accounts"
 
     id = Column(Integer, primary_key=True)
-    username = Column(String, ForeignKey("users.username"))
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"))
     first_name = Column(String(30), nullable=False)
     last_name = Column(String(60), nullable=False)
     location = Column(String(40), nullable=True)
@@ -41,7 +44,7 @@ class Account(Base):
     email = Column(String(150), unique=True, nullable=False)
     phone_number = Column(String, unique=True, nullable=True)
     birth_date = Column(Date, nullable=True)
-    images_quantity = Column(Integer, nullable=True)
+    images_quantity = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -58,6 +61,7 @@ class Image(Base):
     rating = Column(Float(2), default=0)
     comments = relationship("Comment", secondary="comment_images", backref="images")
     tags = relationship("Tag", secondary="tag_images", backref="images")
+    rates = relationship("Rating", backref="images")
 
 
 class Comment(Base):
@@ -101,6 +105,7 @@ class Rating(Base):
     image_id = Column(Integer, ForeignKey("images.id"))
     rate = Column(Integer)
     user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=func.now())
 
 
 class BanList(Base):
