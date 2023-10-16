@@ -6,7 +6,7 @@ from src.database.models import User, Image
 
 
 async def upload_file(body: ImageModel, user: User, db: Session):
-    public_id = CloudImage.generate_name_avatar(user.username)
+    public_id = CloudImage.generate_file_name(user.username)
     res = CloudImage.upload(body.file.file, public_id)
     scr_url = CloudImage.get_url_for_avatar(public_id, res)
     image = Image(user_id=user.id, description=body.description, public_id=public_id, origin_path=scr_url)
