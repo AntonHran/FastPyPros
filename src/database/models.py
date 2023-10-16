@@ -59,6 +59,8 @@ class Image(Base):
     rating = Column(Float(2), default=0)
     comments = relationship("Comment", secondary="comment_images", backref="images")
     tags = relationship("Tag", secondary="tag_images", backref="images")
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
 class Comment(Base):
