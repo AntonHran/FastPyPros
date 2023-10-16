@@ -21,6 +21,7 @@ from fastapi_limiter import FastAPILimiter
 from src.database.connection import get_db
 from src.routes import images, auth, users
 from src.conf.config import settings
+from src.services.tasks import check_token
 
 
 app = FastAPI()
@@ -28,16 +29,11 @@ app = FastAPI()
 
 @app.on_event("startup")
 async def startup():
-
-    """The startup function is called when the application starts up.
-    It's a good place to initialize things that are used by the app, such as caches or databases.
-
-    :return: The fastapilimiter instance
-    :doc-author: Trelent"""
-    
+    await check_token(Depends(get_db))
     red = await redis.Redis(host=settings.redis_host, port=settings.redis_port,
                             db=0, encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(red)
+
 
 origins = [
     "http://127.0.0.1:5500",
