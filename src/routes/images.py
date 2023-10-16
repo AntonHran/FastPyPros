@@ -52,6 +52,23 @@ async def delete_image(image_id: int, db: Session = Depends(get_db)):
 
 
 # ----------- tags ----------------
+
+@router.get('/get_tags')
+async def get_tags(skip:int = 0, limit: int = 5, db: Session = Depends(get_db)):
+    result = await repository_tags.get_tags(skip, limit, db)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Some problem.')
+    
+    return result
+
+@router.get('/get_tag/{tag}')
+async def get_tag(tag: str, db: Session = Depends(get_db)):
+    result = await repository_tags.get_tag(tag, db)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='No tag in db.')
+    
+    return result
+
 @router.post('/add_tag_to_db', response_model=ResponeTagModel)
 async def add_tag_to_db(tags: str, db: Session = Depends(get_db)):    
     tags = tags.rstrip(' ').split(' ')
@@ -68,7 +85,5 @@ async def add_tag_to_image(image_id: int, tags: str, db: Session = Depends(get_d
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='To many tags, max 5 tags.')
         
     result = await repository_tags.add_tag_to_image(image_id, tags, db)
-    if result is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Some problem.')
-    
     return result
+
