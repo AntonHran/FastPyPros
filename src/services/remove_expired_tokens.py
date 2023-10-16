@@ -19,10 +19,13 @@ async def get_token_data(token: str):
 
 async def check_token(db: Session):
     tokens = await get_all_tokens(db)
+    result = []
     for token in tokens:
         token_data = await get_token_data(token.access_token)
         if datetime.fromtimestamp(token_data["exp"]) <= datetime.now() and token.reason == "logout":
-            await remove_token(token.access_token, db)
+            removed_token = await remove_token(token.access_token, db)
+            result.append(removed_token)
+    return result
 
 
 async def remove_token(token: str, db: Session):
