@@ -24,6 +24,7 @@ fastapi-limiter = "*"
 cloudinary = "*"
 httpx = "*"
 python-multipart = "*"
+celery = "*"
 
 [dev-packages]
 sphinx = "*"
