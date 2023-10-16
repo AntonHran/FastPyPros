@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from src.database.connection import get_db
 from src.database.models import User, Role
 from src.repositories import users as repository_users
-from src.services.auth import auth_user, auth_token
+from src.services.auth import auth_user
 from src.schemes.users import UserResponse
 from src.schemes.account import AccountResponse, AccountModel
 from src.services.cloud_image import CloudImage
@@ -84,10 +84,10 @@ async def update_account_avatar(file: UploadFile = File(),
     :return: The updated user
     :doc-author: Trelent
     """
-    public_id = CloudImage.generate_name_avatar(current_user.email)
+    public_id = CloudImage.generate_file_name(current_user.username)
     r = CloudImage.upload(file.file, public_id)
     src_url = CloudImage.get_url_for_avatar(public_id, r)
-    user = await repository_users.update_avatar(current_user.email, src_url, db)
+    user = await repository_users.update_avatar(current_user, src_url, db)
     return user
 
 
@@ -174,5 +174,15 @@ async def remove_user(user_id: int = Path(ge=1),
 
 @router.post("/{user_id}", dependencies=[Depends(allowed_ban)], description=messages.FOR_ADMIN)
 async def ban(user_id: int, reason: str, db: Session = Depends(get_db)):
-    user = await repository_users.get_user_by_id(user_id, db)
-    await repository_users.add_to_ban_list(user.access_token, reason, db)
+
+    await repository_users.add_to_ban_list(user_id, reason, db)
+
+
+@router.get("/search", dependencies=[Depends(allowed_get)],
+            response_model=List[UserResponse],
+            description=messages.FOR_MODERATORS_ADMIN)
+async def search_users(filter_by: str, db: Session = Depends(get_db)):
+    users = await repository_users.search(filter_by, db)
+    if not users:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return users
