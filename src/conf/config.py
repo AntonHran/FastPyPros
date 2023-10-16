@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     cloudinary_name: str = "name"
     cloudinary_api_key: int = 00000000000
     cloudinary_api_secret: str = "secret"
+    broker_url: str
+    backend_url: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
