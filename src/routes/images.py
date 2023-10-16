@@ -1,5 +1,4 @@
 from typing import List
-# from datetime import date
 
 from fastapi import Depends, HTTPException, Path, Query, APIRouter, status
 from sqlalchemy.orm import Session
@@ -7,10 +6,17 @@ from fastapi_limiter.depends import RateLimiter
 
 from src.database.connection import get_db
 from src.repositories import rating as repository_rating
+from src.repositories import images as repository_images
+from src.repositories import search_images
+from src.repositories import tags as repository_tags
+from src.repositories import comments as repository_comments
 from src.schemes.rating import RatingModel, RatingResponse
 from src.database.models import User, Role
 from src.services.auth import auth_user
 from src.services.roles import RoleAccess
+from src.schemes.images import ImageResponse, ImageModel
+from src.schemes.tags import TagResponse
+from src.schemes.comments import CommentResponse, CommentModel
 from src.conf import messages
 
 
@@ -20,7 +26,21 @@ allowed_rate = RoleAccess([Role.admin, Role.moderator, Role.user])
 allowed_get = RoleAccess([Role.admin, Role.moderator])
 allowed_remove = RoleAccess([Role.admin, Role.moderator])
 
+allowed_search = RoleAccess([Role.admin, Role.moderator, Role.user])
 
+allowed_crud_images = RoleAccess([Role.admin, Role.moderator, Role.user])
+
+allowed_create_tag = RoleAccess([Role.admin, Role.moderator, Role.user])
+allowed_add_tag = RoleAccess([Role.admin, Role.moderator, Role.user])
+allowed_update_tag = RoleAccess([Role.admin, Role.moderator])
+allowed_delete_tag = RoleAccess([Role.admin])
+
+allowed_create_comment = RoleAccess([Role.admin, Role.moderator, Role.user])
+allowed_edit_comment = RoleAccess([Role.admin, Role.moderator, Role.user])
+allowed_remove_comment = RoleAccess([Role.admin])
+
+
+# ----------------------------------------RATING------------------------------------
 @router.get("/rating/{image_id}", status_code=status.HTTP_200_OK, response_model=List[RatingResponse],
             dependencies=[Depends(allowed_get), Depends(RateLimiter(times=10, seconds=60))],
             description=messages.FOR_MODERATORS_ADMIN
@@ -55,7 +75,7 @@ async def make_rate(body: RatingModel,
     return rate
 
 
-@router.delete("/rating/{image_id}", status_code=status.HTTP_204_NO_CONTENT,
+@router.delete("/remove_rates/{image_id}", status_code=status.HTTP_204_NO_CONTENT,
                response_model=RatingResponse,
                dependencies=[Depends(allowed_remove)],
                description=messages.FOR_MODERATORS_ADMIN
@@ -68,3 +88,162 @@ async def delete_rate(image_id: int = Path(ge=1),
     if not rate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return rate
+
+
+# -------------------------------------SEARCH---------------------------------------
+@router.get("/search", status_code=status.HTTP_200_OK,
+            response_model=List[ImageResponse],
+            dependencies=[Depends(allowed_search)],
+            description=messages.FOR_ALL)
+async def search_images(keyword: str, filter_by: str, db: Session = Depends(get_db)):
+    images = await search_images.search_result(keyword, filter_by, db)
+    if not images:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return images
+
+
+# -------------------------------------IMAGES---------------------------------------
+@router.post('/', status_code=status.HTTP_201_CREATED,
+             response_model=ImageResponse, dependencies=[Depends(allowed_crud_images)],
+             description=messages.FOR_ALL)
+async def upload_file(body: ImageModel,
+                      current_user: User = Depends(auth_user.get_current_user),
+                      db: Session = Depends(get_db)):
+
+    image = await repository_images.upload_file(body, current_user, db)
+    if image is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.SOMETHING_WRONG)
+    return image
+
+
+@router.get('/{image_id}', response_model=ImageResponse,
+            status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_crud_images)],
+            description=messages.FOR_ALL)
+async def get_image(image_id: int, db: Session = Depends(get_db)):
+
+    result = await repository_images.get_image_by_id(image_id, db)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return result
+
+
+@router.get('/', response_model=List[ImageResponse],
+            status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_crud_images)],
+            description=messages.FOR_ALL)
+async def get_images(current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)):
+
+    images = await repository_images.get_all_images(current_user.id, db)
+    if images is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return images
+
+
+@router.patch('/{image_id}', response_model=ImageResponse,
+              status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_crud_images)],
+              description=messages.FOR_ALL)
+async def update_description(image_id: int, description: str, db: Session = Depends(get_db)):
+
+    image = await repository_images.update_description(image_id, description, db)
+    if image is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return image
+
+
+@router.delete('/{image_id}', response_model=ImageResponse,
+               status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(allowed_crud_images)],
+               description=messages.FOR_ALL)
+async def delete_image(image_id: int, current_user: User = Depends(auth_user.get_current_user),
+                       db: Session = Depends(get_db)):
+
+    result = await repository_images.delete_image(image_id, current_user.username, db)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return result
+
+
+# ----------------------------------------TAGS--------------------------------------
+@router.get("/tags", response_model=List[TagResponse], dependencies=[Depends(allowed_get)],
+            status_code=status.HTTP_200_OK, description=messages.FOR_ALL)
+async def get_tags(limit: int = Query(10, le=50),
+                   offset: int = 0, db: Session = Depends(get_db)):
+    tags = await repository_tags.get_tags(limit, offset, db)
+    return tags
+
+
+@router.put('/{tag_id}', response_model=TagResponse, dependencies=[Depends(allowed_update_tag)],
+            status_code=status.HTTP_200_OK, description=messages.FOR_MODERATORS_ADMIN)
+async def update_tag(tag_id: int, new_tag: str, db: Session = Depends(get_db)):
+    tag = await repository_tags.update_tag(tag_id, new_tag, db)
+    if tag is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return tag
+
+
+@router.delete('/{tag_id}', response_model=TagResponse, dependencies=[Depends(allowed_delete_tag)],
+               status_code=status.HTTP_204_NO_CONTENT, description=messages.FOR_ADMIN)
+async def delete_tag(tag_id: int, db: Session = Depends(get_db)):
+    tag = await repository_tags.remove_tag(tag_id, db)
+    if tag is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return tag
+
+
+@router.post('/add_tag_to_image/{image_id}', status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(allowed_add_tag)], description=messages.FOR_ALL)
+async def add_tag_to_image(image_id: int, tag: str, db: Session = Depends(get_db)):
+    result = await repository_tags.add_tag_to_image(image_id, tag, db)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.LIMIT_EXCEEDED)
+    return result
+
+
+# -------------------------------------COMMENTS-------------------------------------
+@router.get("/image_comments", status_code=status.HTTP_200_OK,
+            response_model=List[CommentResponse],
+            dependencies=[Depends(allowed_get)],
+            description=messages.FOR_ALL)
+async def read_comments(image_id: int, limit: int = Query(10, le=100),
+                        offset: int = 0, db: Session = Depends(get_db)):
+
+    comments = await repository_comments.get_comments(image_id, limit, offset, db)
+    if not comments:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return comments
+
+
+@router.post("/", response_model=CommentResponse, status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(allowed_create_comment)], description=messages.FOR_ALL)
+async def create_comment(body: CommentModel,
+                         current_user: User = Depends(auth_user.get_current_user),
+                         db: Session = Depends(get_db)):
+    comment = repository_comments.create_comment(body, current_user, db)
+    if not comment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.SOMETHING_WRONG)
+    return comment
+
+
+@router.put("/{comment_id}", response_model=CommentResponse, status_code=status.HTTP_200_OK,
+            dependencies=[Depends(allowed_edit_comment)], description=messages.FOR_ALL)
+async def update_comment(comment_id: int, new_comment: str,
+                         current_user: User = Depends(auth_user.get_current_user),
+                         db: Session = Depends(get_db)):
+
+    comment = await repository_comments.get_comment(comment_id, db)
+    if not comment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail=messages.NOT_YOUR_COMMENT)
+    new_comment = repository_comments.update_comment(new_comment, comment_id, db)
+    return new_comment
+
+
+@router.delete("/{comment_id}", response_model=CommentResponse, status_code=status.HTTP_204_NO_CONTENT,
+               dependencies=[Depends(allowed_remove_comment)],
+               description=messages.FOR_ADMIN)
+async def delete_comment(comment_id: int, db: Session = Depends(get_db)):
+
+    comment = repository_comments.delete_comment(comment_id, db)
+    if not comment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return comment
