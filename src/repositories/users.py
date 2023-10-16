@@ -1,11 +1,13 @@
 from datetime import datetime
 
 from sqlalchemy.orm import Session
+# from sqlalchemy import distinct
 from libgravatar import Gravatar
 
 from src.database.models import User, Account, BanList
 from src.schemes.users import UserModel
 from src.schemes.account import AccountModel
+from src.services.cloud_image import CloudImage
 
 
 async def get_user_by_email(email: str, db: Session) -> User | None:
@@ -139,20 +141,12 @@ async def reset_password(user: User, new_password: str, db: Session):
     db.commit()
 
 
-async def update_avatar(email: str, url: str, db: Session):
-    """
-    The update_avatar function updates the avatar of a user.
+async def update_avatar(user: User, url: str, db: Session):
 
-    :param email: str: Specify the email of the user that is being updated
-    :param url: str: Update the avatar of a user
-    :param db: Session: Access the database
-    :return: The user object
-    :doc-author: Trelent
-    """
-    user = await get_user_by_email(email, db)
     user.avatar = url
     user.updated_at = datetime.now()
     db.commit()
+    db.refresh(user)
     return user
 
 
@@ -215,6 +209,7 @@ async def remove_user(user_id: int, db: Session):
     if user:
         db.delete(user)
         db.commit()
+        CloudImage.remove_folder(user.username)
     return user
 
 
@@ -224,8 +219,11 @@ async def invalidate_tokens(user_id: int, db: Session):  # required to be done!!
     db.commit()
 
 
-async def add_to_ban_list(access_token: str, reason: str, db: Session):
-    new_record = BanList(access_token=access_token, reason=reason)
+async def add_to_ban_list(user_id: int, reason: str, db: Session):
+    user = await get_user_by_id(user_id, db)
+    if reason == "logout":
+        CloudImage.remove_folder(user.username)
+    new_record = BanList(access_token=user.access_token, reason=reason)
     db.add(new_record)
     db.commit()
 
@@ -233,3 +231,9 @@ async def add_to_ban_list(access_token: str, reason: str, db: Session):
 async def check_ban_list(user_id: int, db: Session):
     user = await get_user_by_id(user_id, db)
     return db.query(BanList).filter_by(access_token=user.access_token).first()
+
+
+async def search(filter_by: str, db: Session):
+    result = db.query(Account.username).filter(Account.images_quantity != 0).distinct().all()
+    users = db.query(User).filter(User.username.in_(result)).order_by(getattr(User, filter_by)).all()
+    return users
