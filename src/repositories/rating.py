@@ -14,6 +14,7 @@ async def rate_image(body: RatingModel, user: User, db: Session):
     db.add(rate)
     db.commit()
     db.refresh(rate)
+    await update_rating(body.image_id, db)
     return rate
 
 
@@ -32,4 +33,22 @@ async def remove_rate(image_id: int, user_id: int, db: Session):
     if user_rate:
         db.delete(user_rate)
         db.commit()
+        await update_rating(image_id, db)
     return user_rate
+
+
+async def calculate_rating(image_id: int, db: Session):
+    rates_query = db.query(Rating).filter(Rating.image_id == image_id).all()
+    rates = sum([rate.rate for rate in rates_query])
+    users = len([rate.user_id for rate in rates_query])
+    rating = rates / users
+    return rating
+
+
+async def update_rating(image_id: int, db: Session):
+    rating = await calculate_rating(image_id, db)
+    image = db.query(Image).filter(Image.id == image_id).first()
+    image.rating = rating
+    db.commit()
+    db.refresh(image)
+    return image
