@@ -17,7 +17,7 @@ class CloudImage:
     )
 
     @staticmethod
-    def generate_name_avatar(username: str):
+    def generate_file_name(username: str):
         created_at = datetime.now().strftime("%Y%m%d%H%M%S")
         name = hashlib.sha256(username.encode("utf-8")).hexdigest()[:12]
         return f"share_photo/{username}/{name}_{created_at}"
