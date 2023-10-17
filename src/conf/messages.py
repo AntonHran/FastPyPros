@@ -10,3 +10,4 @@ EMAIL_ALREADY_CONFIRMED = "Your email is already confirmed"
 EMAIL_CONFIRMED = "Email confirmed"
 TOKEN_TYPE = "bearer"
 MESSAGE = "message"
+FOR_ALL = 'For all access levels'

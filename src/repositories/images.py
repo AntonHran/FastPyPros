@@ -16,7 +16,7 @@ async def upload_file(file: UploadFile, description: str, db: Session, user: Use
     image = Image(user_id=user.id, description=description, origin_path=image_url, public_id=public_id, transformed_path=None, qr_path=None)
     db.add(image)
     db.commit()
-    return {"public_id": public_id}
+    return {"image": image}
 
 async def get_image_by_id(image_id: int, db: Session, user: User) -> Image:
     return db.query(Image).filter(and_(Image.id == image_id, Image.user_id == user.id)).first()

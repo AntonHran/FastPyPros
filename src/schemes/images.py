@@ -2,8 +2,10 @@ from pydantic import BaseModel, ConfigDict
 from fastapi import UploadFile
 from datetime import datetime
 
+from src.database.models import Image
 
-class ImageModel(BaseModel):
+
+class ResponeImageModel(BaseModel):
     id: int
     user_id: int
     description: str
@@ -20,7 +22,7 @@ class FileModel(BaseModel):
     file: UploadFile
 
 class ResponeUploadFile(BaseModel):
-    public_id: str
+    image: ResponeImageModel
 
 class UpdateImageModel(BaseModel):
     description: str
