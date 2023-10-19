@@ -36,7 +36,7 @@ class Token:
         if expires_delta:
             expire = datetime.utcnow() + timedelta(seconds=expires_delta)
         else:
-            expire = datetime.utcnow() + timedelta(minutes=150)
+            expire = datetime.utcnow() + timedelta(days=3)
         to_encode.update(
             {"iat": datetime.utcnow(), "exp": expire, "scope": "access_token"}
         )

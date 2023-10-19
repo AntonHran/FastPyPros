@@ -1,6 +1,9 @@
 import hashlib
+from datetime import datetime
+import requests
 
 import cloudinary
+import cloudinary.api
 import cloudinary.uploader
 
 from src.conf.config import settings
@@ -15,21 +18,10 @@ class CloudImage:
     )
 
     @staticmethod
-    def generate_name_avatar(email: str):
-        """
-        The generate_name_avatar function takes an email address as input and returns
-        a unique avatar name.
-        The function uses the first 12 characters of the SHA256 hash of the email address
-        to generate a unique string, which is then used as part of an avatar name. The
-        function returns this avatar name.
-
-        :param email: str: Specify the type of data that is expected to be passed into
-        the function
-        :return: A string
-        :doc-author: Trelent
-        """
-        name = hashlib.sha256(email.encode("utf-8")).hexdigest()[:12]
-        return f"share_photo/avatar/{name}"
+    def generate_file_name(username: str):
+        created_at = datetime.now().strftime("%Y%m%d%H%M%S")
+        name = hashlib.sha256(username.encode("utf-8")).hexdigest()[:12]
+        return f"share_photo/{username}/{name}_{created_at}"
 
     @staticmethod
     def upload(file, public_id: str):
@@ -61,3 +53,19 @@ class CloudImage:
         src_url = cloudinary.CloudinaryImage(public_id).build_url(width=250, height=250,
                                                                   crop="fill", version=r.get("version"))
         return src_url
+
+    @staticmethod
+    def remove_image(username: str, public_id: str):
+        cloudinary.uploader.destroy(f"photo_share/{username}/{public_id}", invalidate=True)
+
+    @staticmethod
+    def remove_folder(username):
+        cloudinary.api.delete_folder(username)
+
+    @staticmethod
+    def get_file_by_url(public_id: str):
+        resource = cloudinary.api.resource(public_id)
+        file_url = resource['secure_url']
+        response = requests.get(file_url)
+        if response.status_code == 200:
+            return response.content
