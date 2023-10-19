@@ -8,6 +8,7 @@ class TagModel(BaseModel):
 
 
 class TagResponse(BaseModel):
-    tags: list
+    id: int
+    tag: str
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)

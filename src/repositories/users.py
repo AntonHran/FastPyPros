@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy.orm import Session
-# from sqlalchemy import distinct
+from fastapi.exceptions import ValidationException
 from libgravatar import Gravatar
 
 from src.database.models import User, Account, BanList
@@ -90,23 +90,13 @@ async def remove_account(username: str, db: Session):
     return account
 
 
-async def update_token(user: User, refresh_token, db: Session):
-    """
-    The update_token function updates the refresh token for a user in the database.
-        Args:
-            user (User): The User object to update.
-            refresh_token (str): The new refresh token to store in the database.
-            db (Session): A connection to our Postgres database.
+async def update_token(user: User, access_token: str, refresh_token: str, db: Session):
 
-    :param user: User: Identify the user that is being updated
-    :param refresh_token: Update the user's refresh_token in the database
-    :param db: Session: Pass the database session to the function
-    :return: A user object
-    :doc-author: Trelent
-    """
     user.refresh_token = refresh_token
-    user.updated_at = datetime.now()
+    user.access_token = access_token
+    # user.updated_at = datetime.now()
     db.commit()
+    db.refresh(user)
 
 
 async def confirm_email(email: str, db: Session):
@@ -142,12 +132,12 @@ async def reset_password(user: User, new_password: str, db: Session):
 
 
 async def update_avatar(user: User, url: str, db: Session):
-
-    user.avatar = url
-    user.updated_at = datetime.now()
+    user_account = await get_account_by_username(user.username, db)
+    user_account.avatar = url
+    # user.updated_at = datetime.now()
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(user_account)
+    return user_account
 
 
 async def get_all_users(limit: int, offset: int, db: Session):
@@ -189,7 +179,11 @@ async def get_account_by_username(username: str, db: Session):
     :return: The first user with the username specified in the function call
     :doc-author: Trelent
     """
-    return db.query(Account).filter_by(username=username).first()
+    try:
+        account = db.query(Account).filter_by(username=username).first()
+    except ValidationException:
+        return
+    return account
 
 
 async def remove_user(user_id: int, db: Session):

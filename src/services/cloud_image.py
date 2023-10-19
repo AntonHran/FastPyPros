@@ -1,5 +1,6 @@
 import hashlib
 from datetime import datetime
+import requests
 
 import cloudinary
 import cloudinary.api
@@ -60,3 +61,11 @@ class CloudImage:
     @staticmethod
     def remove_folder(username):
         cloudinary.api.delete_folder(username)
+
+    @staticmethod
+    def get_file_by_url(public_id: str):
+        resource = cloudinary.api.resource(public_id)
+        file_url = resource['secure_url']
+        response = requests.get(file_url)
+        if response.status_code == 200:
+            return response.content

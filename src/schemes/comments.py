@@ -8,9 +8,10 @@ class CommentModel(BaseModel):
     content: str = Field(max_length=265)
 
 
-class CommentResponse(CommentModel):
+class CommentResponse(BaseModel):
     id: int
+    user_id: int
+    comment: str
     created_at: datetime
     updated_at: datetime
-    user_id: int
     model_config = ConfigDict(from_attributes=True)

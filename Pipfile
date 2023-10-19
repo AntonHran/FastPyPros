@@ -25,6 +25,7 @@ cloudinary = "*"
 httpx = "*"
 python-multipart = "*"
 celery = "*"
+qrcode = "*"
 
 [dev-packages]
 sphinx = "*"

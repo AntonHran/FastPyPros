@@ -29,7 +29,7 @@ allowed_remove = RoleAccess([Role.admin])
 allowed_ban = RoleAccess([Role.admin])
 
 
-@router.get("/me/{username}", response_model=AccountResponse,
+@router.get("/me/{username}", response_model=AccountResponse, status_code=status.HTTP_200_OK,
             dependencies=[Depends(allowed_read)],
             description=messages.FOR_ALL)
 async def read_users_me(username: str,
@@ -42,10 +42,13 @@ async def read_users_me(username: str,
     :return: The user object for the given username
     :doc-author: Trelent
     """
-    return await repository_users.get_account_by_username(username, db)
+    account = await repository_users.get_account_by_username(username, db)
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ACCOUNT_NOT_FOUND)
+    return account
 
 
-@router.post("/fill_account", response_model=AccountResponse,
+@router.post("/fill_account/", response_model=AccountResponse, status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(allowed_create_account)],
              description=messages.FOR_ALL)
 async def create_account(body: AccountModel,
@@ -69,29 +72,25 @@ async def create_account(body: AccountModel,
     return account
 
 
-@router.patch('/avatar', response_model=UserResponse,
+@router.patch('/avatar/', response_model=AccountResponse, status_code=status.HTTP_200_OK,
               dependencies=[Depends(allowed_update_avatar)],
               description="For all users")
 async def update_account_avatar(file: UploadFile = File(),
                                 current_user: User = Depends(auth_user.get_current_user),
                                 db: Session = Depends(get_db)):
-    """
-    The update_avatar_user function updates the avatar of a user.
 
-    :param file: UploadFile: Get the file from the request
-    :param current_user: User: Get the current user
-    :param db: Session: Access the database
-    :return: The updated user
-    :doc-author: Trelent
-    """
     public_id = CloudImage.generate_file_name(current_user.username)
     r = CloudImage.upload(file.file, public_id)
     src_url = CloudImage.get_url_for_avatar(public_id, r)
     user = await repository_users.update_avatar(current_user, src_url, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=messages.ACCOUNT_NOT_FOUND
+        )
     return user
 
 
-@router.put("/{username}", response_model=AccountResponse,
+@router.put("/{username}", response_model=AccountResponse, status_code=status.HTTP_200_OK,
             dependencies=[Depends(allowed_update_account)],
             description=messages.FOR_ALL)
 async def update_account(body: AccountModel,
@@ -103,7 +102,7 @@ async def update_account(body: AccountModel,
     return account
 
 
-@router.delete("/{username}", status_code=status.HTTP_204_NO_CONTENT,
+@router.delete("/account/", status_code=status.HTTP_204_NO_CONTENT,
                dependencies=[Depends(allowed_remove_account)],
                description=messages.FOR_ALL)
 async def remove_account(current_user: User = Depends(auth_user.get_current_user),
@@ -114,7 +113,7 @@ async def remove_account(current_user: User = Depends(auth_user.get_current_user
     return account
 
 
-@router.get("/", response_model=List[UserResponse],
+@router.get("/", response_model=List[UserResponse], status_code=status.HTTP_200_OK,
             dependencies=[Depends(allowed_get)],
             description=messages.FOR_MODERATORS_ADMIN)
 async def get_users(limit: int = Query(10, le=100),
@@ -133,7 +132,7 @@ async def get_users(limit: int = Query(10, le=100),
     return await repository_users.get_all_users(limit, offset, db)
 
 
-@router.get("/{user_id}", response_model=UserResponse,
+@router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK,
             dependencies=[Depends(allowed_get)],
             description=messages.FOR_MODERATORS_ADMIN)
 async def get_user(user_id: int = Path(ge=1), db: Session = Depends(get_db)):
@@ -152,7 +151,7 @@ async def get_user(user_id: int = Path(ge=1), db: Session = Depends(get_db)):
     return await repository_users.get_user_by_id(user_id, db)
 
 
-@router.delete("/{user_id}", response_model=UserResponse,
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
                dependencies=[Depends(allowed_remove)],
                description=messages.FOR_ADMIN)
 async def remove_user(user_id: int = Path(ge=1),
@@ -172,13 +171,14 @@ async def remove_user(user_id: int = Path(ge=1),
     return user
 
 
-@router.post("/{user_id}", dependencies=[Depends(allowed_ban)], description=messages.FOR_ADMIN)
+@router.post("/{user_id}", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(allowed_ban)], description=messages.FOR_ADMIN)
 async def ban(user_id: int, reason: str, db: Session = Depends(get_db)):
 
     await repository_users.add_to_ban_list(user_id, reason, db)
 
 
-@router.get("/search", dependencies=[Depends(allowed_get)],
+@router.get("/search/", dependencies=[Depends(allowed_get)], status_code=status.HTTP_200_OK,
             response_model=List[UserResponse],
             description=messages.FOR_MODERATORS_ADMIN)
 async def search_users(filter_by: str, db: Session = Depends(get_db)):
