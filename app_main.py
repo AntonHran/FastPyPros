@@ -21,7 +21,7 @@ from fastapi_limiter import FastAPILimiter
 from src.database.connection import get_db
 from src.routes import images, auth, users
 from src.conf.config import settings
-from src.services.tasks import check_token
+from src.services.tasks import remove_tokens
 
 
 app = FastAPI()
@@ -29,7 +29,9 @@ app = FastAPI()
 
 @app.on_event("startup")
 async def startup():
-    await check_token(Depends(get_db))
+    db = next(get_db())
+    r_t = await remove_tokens(db)
+    print(r_t)
     red = await redis.Redis(host=settings.redis_host, port=settings.redis_port,
                             db=0, encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(red)
