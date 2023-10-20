@@ -1,3 +1,4 @@
+# from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.database.models import User, Rating, Image
@@ -14,7 +15,6 @@ async def rate_image(body: RatingModel, user: User, db: Session):
     db.add(rate)
     db.commit()
     db.refresh(rate)
-    await update_rating(body.image_id, db)
     return rate
 
 
@@ -33,16 +33,18 @@ async def remove_rate(image_id: int, user_id: int, db: Session):
     if user_rate:
         db.delete(user_rate)
         db.commit()
-        await update_rating(image_id, db)
     return user_rate
 
 
-async def calculate_rating(image_id: int, db: Session):
-    rates_query = db.query(Rating).filter(Rating.image_id == image_id).all()
-    rates = sum([rate.rate for rate in rates_query])
-    users = len([rate.user_id for rate in rates_query])
-    rating = rates / users
-    return rating
+"""async def calculate_rating(image_id: int, db: Session):
+    query = db.query(
+        func.sum(Rating.rate).label('total_rate'),
+        func.count(Rating.user_id).label('user_count')
+    ).filter(Rating.image_id == image_id)
+    result = query.first()
+    if result.total_rate and result.user_count:
+        rating = result.total_rate / result.user_count
+        return rating
 
 
 async def update_rating(image_id: int, db: Session):
@@ -51,4 +53,4 @@ async def update_rating(image_id: int, db: Session):
     image.rating = rating
     db.commit()
     db.refresh(image)
-    return image
+    return image"""

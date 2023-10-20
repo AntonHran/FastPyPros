@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.services.cloud_image import CloudImage
@@ -52,6 +53,11 @@ async def check_image_owner(image_id: int, user: User, db: Session):
     return user_image
 
 
+async def calculate_user_images(user_id: int, db: Session):
+    quantity = db.query(func.count(Image.user_id)).filter(Image.user_id == user_id)
+    return quantity.scalar()
+
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 async def get_image_from_cloud(image_id: int, db: Session):
     image = await get_image_by_id(image_id, db)
@@ -70,7 +76,7 @@ async def transform_image_to_db(transformed_url, image_id: int, db: Session):
 async def add_qrcode_to_db(image_id: int, qr_code: str, db: Session):
     image = await get_image_by_id(image_id, db)
     if image:
-        image.qr_path = qr_code
+        image.slug = qr_code
         db.commit()
         db.refresh(image)
     return image

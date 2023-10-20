@@ -6,31 +6,22 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
 from src.database.connection import get_db
-from src.database.models import User, Role
+from src.database.models import User
 from src.repositories import users as repository_users
 from src.services.auth import auth_user
 from src.schemes.users import UserResponse
 from src.schemes.account import AccountResponse, AccountModel
 from src.services.cloud_image import CloudImage
-from src.services.roles import RoleAccess
+from src.conf.allowed_roles import *
 from src.conf import messages
 
 
 router = APIRouter(prefix="/users", tags=["users"])
 security = HTTPBearer()
 
-allowed_read = RoleAccess([Role.user, Role.moderator, Role.admin])
-allowed_create_account = RoleAccess([Role.user, Role.moderator, Role.admin])
-allowed_update_avatar = RoleAccess([Role.user])
-allowed_update_account = RoleAccess([Role.user])
-allowed_remove_account = RoleAccess([Role.user, Role.moderator, Role.admin])
-allowed_get = RoleAccess([Role.moderator, Role.admin])
-allowed_remove = RoleAccess([Role.admin])
-allowed_ban = RoleAccess([Role.admin])
-
 
 @router.get("/me/{username}", response_model=AccountResponse, status_code=status.HTTP_200_OK,
-            dependencies=[Depends(allowed_read)],
+            dependencies=[Depends(all_users)],
             description=messages.FOR_ALL)
 async def read_users_me(username: str,
                         db: Session = Depends(get_db)):
@@ -49,7 +40,7 @@ async def read_users_me(username: str,
 
 
 @router.post("/fill_account/", response_model=AccountResponse, status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(allowed_create_account)],
+             dependencies=[Depends(all_users)],
              description=messages.FOR_ALL)
 async def create_account(body: AccountModel,
                          current_user: User = Depends(auth_user.get_current_user),
@@ -73,7 +64,7 @@ async def create_account(body: AccountModel,
 
 
 @router.patch('/avatar/', response_model=AccountResponse, status_code=status.HTTP_200_OK,
-              dependencies=[Depends(allowed_update_avatar)],
+              dependencies=[Depends(only_users)],
               description="For all users")
 async def update_account_avatar(file: UploadFile = File(),
                                 current_user: User = Depends(auth_user.get_current_user),
@@ -91,7 +82,7 @@ async def update_account_avatar(file: UploadFile = File(),
 
 
 @router.put("/{username}", response_model=AccountResponse, status_code=status.HTTP_200_OK,
-            dependencies=[Depends(allowed_update_account)],
+            dependencies=[Depends(only_users)],
             description=messages.FOR_ALL)
 async def update_account(body: AccountModel,
                          current_user: User = Depends(auth_user.get_current_user),
@@ -103,7 +94,7 @@ async def update_account(body: AccountModel,
 
 
 @router.delete("/account/", status_code=status.HTTP_204_NO_CONTENT,
-               dependencies=[Depends(allowed_remove_account)],
+               dependencies=[Depends(all_users)],
                description=messages.FOR_ALL)
 async def remove_account(current_user: User = Depends(auth_user.get_current_user),
                          db: Session = Depends(get_db)):
@@ -114,7 +105,7 @@ async def remove_account(current_user: User = Depends(auth_user.get_current_user
 
 
 @router.get("/", response_model=List[UserResponse], status_code=status.HTTP_200_OK,
-            dependencies=[Depends(allowed_get)],
+            dependencies=[Depends(moderators_admin)],
             description=messages.FOR_MODERATORS_ADMIN)
 async def get_users(limit: int = Query(10, le=100),
                     offset: int = 0,
@@ -133,7 +124,7 @@ async def get_users(limit: int = Query(10, le=100),
 
 
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK,
-            dependencies=[Depends(allowed_get)],
+            dependencies=[Depends(moderators_admin)],
             description=messages.FOR_MODERATORS_ADMIN)
 async def get_user(user_id: int = Path(ge=1), db: Session = Depends(get_db)):
 
@@ -152,7 +143,7 @@ async def get_user(user_id: int = Path(ge=1), db: Session = Depends(get_db)):
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
-               dependencies=[Depends(allowed_remove)],
+               dependencies=[Depends(admin)],
                description=messages.FOR_ADMIN)
 async def remove_user(user_id: int = Path(ge=1),
                       db: Session = Depends(get_db)):
@@ -172,13 +163,13 @@ async def remove_user(user_id: int = Path(ge=1),
 
 
 @router.post("/{user_id}", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(allowed_ban)], description=messages.FOR_ADMIN)
+             dependencies=[Depends(admin)], description=messages.FOR_ADMIN)
 async def ban(user_id: int, reason: str, db: Session = Depends(get_db)):
 
     await repository_users.add_to_ban_list(user_id, reason, db)
 
 
-@router.get("/search/", dependencies=[Depends(allowed_get)], status_code=status.HTTP_200_OK,
+@router.get("/search/", dependencies=[Depends(moderators_admin)], status_code=status.HTTP_200_OK,
             response_model=List[UserResponse],
             description=messages.FOR_MODERATORS_ADMIN)
 async def search_users(filter_by: str, db: Session = Depends(get_db)):

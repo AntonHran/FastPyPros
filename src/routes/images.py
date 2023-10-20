@@ -7,48 +7,27 @@ from fastapi_limiter.depends import RateLimiter
 from src.database.connection import get_db
 from src.repositories import rating as repository_rating
 from src.repositories import images as repository_images
-from src.repositories import search_images
-from src.repositories import tags as repository_tags
-from src.repositories import comments as repository_comments
+from src.repositories import search_images as search
+from src.repositories.tags import TagServices
+from src.repositories.comments import CommentServices
 from src.schemes.rating import RatingModel, RatingResponse
-from src.database.models import User, Role
+from src.database.models import User
 from src.services.auth import auth_user
-from src.services.roles import RoleAccess
 from src.schemes.images import ImageResponse
 from src.schemes.tags import TagResponse
 from src.schemes.comments import CommentResponse, CommentModel
-from src.schemes.images import ImageUploadModel, ImageUploadResponse
+from src.schemes.images import ImageUploadModel
 from src.services.cloud_services import TransformImage
+from src.conf import allowed_roles
 from src.conf import messages
 
 
 router = APIRouter(prefix="/images", tags=["images"])
 
-allowed_rate = RoleAccess([Role.admin, Role.moderator, Role.user])
-allowed_get = RoleAccess([Role.admin, Role.moderator])
-allowed_remove = RoleAccess([Role.admin, Role.moderator])
-
-allowed_search = RoleAccess([Role.admin, Role.moderator, Role.user])
-
-allowed_crud_images = RoleAccess([Role.admin, Role.moderator, Role.user])
-
-allowed_read_tags = RoleAccess([Role.admin, Role.moderator, Role.user])
-allowed_create_tag = RoleAccess([Role.admin, Role.moderator, Role.user])
-allowed_add_tag = RoleAccess([Role.admin, Role.moderator, Role.user])
-allowed_update_tag = RoleAccess([Role.admin, Role.moderator])
-allowed_delete_tag = RoleAccess([Role.admin])
-
-allowed_get_comments = RoleAccess([Role.admin, Role.moderator, Role.user])
-allowed_create_comment = RoleAccess([Role.admin, Role.moderator, Role.user])
-allowed_edit_comment = RoleAccess([Role.admin, Role.moderator, Role.user])
-allowed_remove_comment = RoleAccess([Role.admin])
-
-allowed_transformed = RoleAccess([Role.user])
-
 
 # ----------------------------------------RATING------------------------------------
 @router.get("/rating/{image_id}", status_code=status.HTTP_200_OK, response_model=List[RatingResponse],
-            dependencies=[Depends(allowed_get), Depends(RateLimiter(times=10, seconds=60))],
+            dependencies=[Depends(allowed_roles.moderators_admin), Depends(RateLimiter(times=10, seconds=60))],
             description=messages.FOR_MODERATORS_ADMIN
             )
 async def get_rate(
@@ -64,7 +43,7 @@ async def get_rate(
 
 @router.post("/rate/", response_model=RatingResponse,
              status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(allowed_rate)],  # Depends(RateLimiter(times=4, seconds=60))],
+             dependencies=[Depends(allowed_roles.all_users)],  # Depends(RateLimiter(times=4, seconds=60))],
              description=messages.FOR_ALL
              )
 async def make_rate(body: RatingModel,
@@ -82,7 +61,7 @@ async def make_rate(body: RatingModel,
 
 
 @router.delete("/remove_rates/{image_id}", status_code=status.HTTP_204_NO_CONTENT,
-               dependencies=[Depends(allowed_remove)],
+               dependencies=[Depends(allowed_roles.moderators_admin)],
                description=messages.FOR_MODERATORS_ADMIN
                )
 async def delete_rate(image_id: int = Path(ge=1),
@@ -98,10 +77,10 @@ async def delete_rate(image_id: int = Path(ge=1),
 # -------------------------------------SEARCH---------------------------------------
 @router.get("/search/", status_code=status.HTTP_200_OK,
             response_model=List[ImageResponse],
-            dependencies=[Depends(allowed_search)],
+            dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
 async def search_images(keyword: str, filter_by: str, db: Session = Depends(get_db)):
-    images = await search_images.search_result(keyword, filter_by, db)
+    images = await search.search_result(keyword, filter_by, db)
     if not images:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return images
@@ -109,7 +88,7 @@ async def search_images(keyword: str, filter_by: str, db: Session = Depends(get_
 
 # -------------------------------------IMAGES---------------------------------------
 @router.post('/', status_code=status.HTTP_201_CREATED,
-             response_model=ImageResponse, dependencies=[Depends(allowed_crud_images)],
+             response_model=ImageResponse, dependencies=[Depends(allowed_roles.all_users)],
              description=messages.FOR_ALL)
 async def upload_file(file: UploadFile, description: str,
                       current_user: User = Depends(auth_user.get_current_user),
@@ -122,7 +101,7 @@ async def upload_file(file: UploadFile, description: str,
 
 
 @router.get('/{image_id}', response_model=ImageResponse,
-            status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_crud_images)],
+            status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
 async def get_image(image_id: int, db: Session = Depends(get_db)):
 
@@ -133,7 +112,7 @@ async def get_image(image_id: int, db: Session = Depends(get_db)):
 
 
 @router.get('/', response_model=List[ImageResponse],
-            status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_crud_images)],
+            status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
 async def get_images(current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)):
 
@@ -144,7 +123,7 @@ async def get_images(current_user: User = Depends(auth_user.get_current_user), d
 
 
 @router.patch('/{image_id}', response_model=ImageResponse,
-              status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_crud_images)],
+              status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_roles.all_users)],
               description=messages.FOR_ALL)
 async def update_description(image_id: int, description: str,
                              current_user: User = Depends(auth_user.get_current_user),
@@ -161,7 +140,7 @@ async def update_description(image_id: int, description: str,
 
 
 @router.delete('/{image_id}',
-               status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(allowed_crud_images)],
+               status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(allowed_roles.all_users)],
                description=messages.FOR_ALL)
 async def delete_image(image_id: int, current_user: User = Depends(auth_user.get_current_user),
                        db: Session = Depends(get_db)):
@@ -176,38 +155,38 @@ async def delete_image(image_id: int, current_user: User = Depends(auth_user.get
 
 
 # ----------------------------------------TAGS--------------------------------------
-@router.get("/tags/", response_model=List[TagResponse], dependencies=[Depends(allowed_read_tags)],
+@router.get("/tags/", response_model=List[TagResponse], dependencies=[Depends(allowed_roles.all_users)],
             status_code=status.HTTP_200_OK, description=messages.FOR_ALL)
 async def get_tags(limit: int = Query(10, le=50),
                    offset: int = 0, db: Session = Depends(get_db)):
-    tags = await repository_tags.get_tags(limit, offset, db)
+    tags = await TagServices.get_tags(limit, offset, db)
     if not tags:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return tags
 
 
-@router.put('/{tag_id}', response_model=TagResponse, dependencies=[Depends(allowed_update_tag)],
+@router.put('/{tag_id}', response_model=TagResponse, dependencies=[Depends(allowed_roles.moderators_admin)],
             status_code=status.HTTP_200_OK, description=messages.FOR_MODERATORS_ADMIN)
 async def update_tag(tag_id: int, new_tag: str, db: Session = Depends(get_db)):
-    tag = await repository_tags.update_tag(tag_id, new_tag, db)
+    tag = await TagServices.update_tag(tag_id, new_tag, db)
     if tag is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return tag
 
 
-@router.delete('/{tag_id}', dependencies=[Depends(allowed_delete_tag)],
+@router.delete('/{tag_id}', dependencies=[Depends(allowed_roles.admin)],
                status_code=status.HTTP_204_NO_CONTENT, description=messages.FOR_ADMIN)
 async def delete_tag(tag_id: int, db: Session = Depends(get_db)):
-    tag = await repository_tags.remove_tag(tag_id, db)
+    tag = await TagServices.remove_tag(tag_id, db)
     if tag is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return tag
 
 
 @router.post('/add_tag_to_image/{image_id}', response_model=TagResponse, status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(allowed_add_tag)], description=messages.FOR_ALL)
+             dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def add_tag_to_image(image_id: int, tag: str, db: Session = Depends(get_db)):
-    result = await repository_tags.add_tag_to_image(image_id, tag, db)
+    result = await TagServices.add_tag_to_image(image_id, tag, db)
     if result is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.LIMIT_EXCEEDED)
     return result
@@ -216,50 +195,50 @@ async def add_tag_to_image(image_id: int, tag: str, db: Session = Depends(get_db
 # -------------------------------------COMMENTS-------------------------------------
 @router.get("/image_comments/", status_code=status.HTTP_200_OK,
             response_model=List[CommentResponse],
-            dependencies=[Depends(allowed_get_comments)],
+            dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
 async def read_comments(image_id: int, limit: int = Query(10, le=100),
                         offset: int = 0, db: Session = Depends(get_db)):
 
-    comments = await repository_comments.get_comments(image_id, limit, offset, db)
+    comments = await CommentServices.get_comments(image_id, limit, offset, db)
     if not comments:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return comments
 
 
 @router.post("/comment/", response_model=CommentResponse, status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(allowed_create_comment)], description=messages.FOR_ALL)
+             dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def create_comment(body: CommentModel,
                          current_user: User = Depends(auth_user.get_current_user),
                          db: Session = Depends(get_db)):
-    comment = await repository_comments.create_comment(body, current_user, db)
+    comment = await CommentServices.create_comment(body, current_user, db)
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.SOMETHING_WRONG)
     return comment
 
 
 @router.put("/{comment_id}/", response_model=CommentResponse, status_code=status.HTTP_200_OK,
-            dependencies=[Depends(allowed_edit_comment)], description=messages.FOR_ALL)
+            dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def update_comment(comment_id: int, new_comment: str,
                          current_user: User = Depends(auth_user.get_current_user),
                          db: Session = Depends(get_db)):
 
-    comment = await repository_comments.get_comment(comment_id, db)
+    comment = await CommentServices.get_comment(comment_id, db)
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     if comment.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail=messages.NOT_YOUR_COMMENT)
-    new_comment = await repository_comments.update_comment(new_comment, comment_id, db)
+    new_comment = await CommentServices.update_comment(new_comment, comment_id, db)
     return new_comment
 
 
 @router.delete("/{comment_id}", status_code=status.HTTP_204_NO_CONTENT,
-               dependencies=[Depends(allowed_remove_comment)],
+               dependencies=[Depends(allowed_roles.admin)],
                description=messages.FOR_ADMIN)
 async def delete_comment(comment_id: int, db: Session = Depends(get_db)):
 
-    comment = repository_comments.delete_comment(comment_id, db)
+    comment = CommentServices.delete_comment(comment_id, db)
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return comment
@@ -267,7 +246,7 @@ async def delete_comment(comment_id: int, db: Session = Depends(get_db)):
 
 # -----------------------------------CLOUD_SERVICES----------------------------------response_model=ImageUploadResponse,
 @router.post("/transform/", status_code=status.HTTP_200_OK,
-             dependencies=[Depends(allowed_transformed)], description=messages.FOR_ALL)
+             dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def transform_image(body: ImageUploadModel,
                           db: Session = Depends(get_db)):
     file = await repository_images.get_image_from_cloud(body.image_id, db)
@@ -286,7 +265,7 @@ async def transform_image(body: ImageUploadModel,
 
 @router.get("/qrcode/{image_id}", status_code=status.HTTP_201_CREATED,
             response_model=ImageResponse,
-            dependencies=[Depends(allowed_transformed)],
+            dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
 async def qr_base64(image_id: int,
                     db: Session = Depends(get_db)):

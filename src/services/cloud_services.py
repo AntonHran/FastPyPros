@@ -36,10 +36,10 @@ class TransformImage:
         :return: URL of the image with superimposed effects
         :doc-author: Trelent
         """
-        #with file.file as input_file:
+        # with file.file as input_file:
         transform_image_url = cloudinary.uploader.upload(file, folder=folder,
-                                                             effect=effect, border=border,
-                                                             radius=radius)
+                                                         effect=effect, border=border,
+                                                         radius=radius)
         return transform_image_url
 
     @staticmethod

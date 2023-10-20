@@ -16,7 +16,7 @@ class ImageResponse(BaseModel):
     public_id: str  # ?!?
     origin_path: str
     transformed_path: str | None
-    qr_path: str | None
+    slug: str | None
     rating: float = Field(default=0)
     created_at: datetime
     updated_at: datetime

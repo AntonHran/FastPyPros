@@ -66,20 +66,13 @@ async def create_user_account(body: AccountModel, username: str, db: Session):
 
 
 async def update_user_account(username: str, body: AccountModel, db: Session):
-    account = await get_account_by_username(username, db)
-    if account:
-        account.first_name = body.first_name
-        account.last_name = body.last_name
-        account.location = body.location
-        account.company = body.company
-        account.position = body.position
-        account.email - body.email
-        account.phone_number = body.phone_number
-        account.birth_date = body.birth_date
-        account.updated_at = datetime.now()
+    # account = await get_account_by_username(username, db)
+    account_data = {key: value for key, value in body.items() if value}
+    if account_data:
+        updated_account = db.query(Account).filter(Account.username == username).update(account_data)
         db.commit()
-        db.refresh(account)
-    return account
+        db.refresh(updated_account)
+        return updated_account
 
 
 async def remove_account(username: str, db: Session):
@@ -90,7 +83,7 @@ async def remove_account(username: str, db: Session):
     return account
 
 
-async def update_token(user: User, access_token: str, refresh_token: str, db: Session):
+async def update_token(user: User, access_token: str | None, refresh_token: str | None, db: Session):
 
     user.refresh_token = refresh_token
     user.access_token = access_token
@@ -215,7 +208,7 @@ async def invalidate_tokens(user_id: int, db: Session):  # required to be done!!
 
 async def add_to_ban_list(user_id: int, reason: str, db: Session):
     user = await get_user_by_id(user_id, db)
-    if reason == "logout":
+    if reason != "logout":
         CloudImage.remove_folder(user.username)
     new_record = BanList(access_token=user.access_token, reason=reason)
     db.add(new_record)

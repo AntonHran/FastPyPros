@@ -98,12 +98,12 @@ async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(sec
     email = await auth_token.decode_refresh_token(token)
     user = await repository_users.get_user_by_email(email, db)
     if user.refresh_token != token:
-        await repository_users.update_token(user, None, db)
+        await repository_users.update_token(user, None, None, db)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_REFRESH_TOKEN)
 
     access_token = await auth_token.create_access_token(data={"sub": email})
     refresh_token_ = await auth_token.create_refresh_token(data={"sub": user.email})
-    await repository_users.update_token(user, refresh_token_, db)
+    await repository_users.update_token(user, access_token, refresh_token_, db)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token_,

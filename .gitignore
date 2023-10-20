@@ -2,3 +2,11 @@
 /.idea
 Pipfile.lock
 /project_data
+migrations/versions/__pycache__
+migrations/__pycache__
+src/conf/__pycache__
+src/database/__pycache__
+src/repositories/__pycache__
+src/routes/__pycache__
+src/schemes/__pycache__
+src/services/__pycache__
