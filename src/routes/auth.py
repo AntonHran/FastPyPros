@@ -8,12 +8,12 @@ from sqlalchemy.orm import Session
 from fastapi_limiter.depends import RateLimiter
 
 from src.database.connection import get_db
-from src.repositories import users as repository_users
 from src.schemes.users import UserModel, UserResponse, TokenModel
 # from src.schemes.email import RequestEmail, PasswordResetModel
 from src.services.auth import auth_token, auth_password, auth_user
 # from src.services.email import send_email
 from src.database.models import User
+from src.repositories.users import AuthServices, UserServices
 from src.conf import messages
 
 
@@ -39,11 +39,11 @@ async def signup(body: UserModel,  # background_task: BackgroundTasks, request: 
     :return: A user object, which is then serialized and returned as a response
     :doc-author: Trelent
     """
-    exist_user = await repository_users.get_user_by_email(body.email, db)
+    exist_user = await AuthServices.get_user_by_email(body.email, db)
     if exist_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Account already exists")
     body.password = auth_password.get_password_hash(body.password)
-    new_user = await repository_users.create_user(body, db)
+    new_user = await UserServices.create_user(body, db)
     # background_task.add_task(send_email, new_user.email, new_user.username, str(request.base_url))
     return new_user
 
@@ -60,8 +60,8 @@ async def login(body: OAuth2PasswordRequestForm = Depends(), db: Session = Depen
     :return: An access token and a refresh token
     :doc-author: Trelent
     """
-    user = await repository_users.get_user_by_email(body.username, db)
-    baned_access = await repository_users.check_ban_list(user.id, db)
+    user = await AuthServices.get_user_by_email(body.username, db)
+    baned_access = await AuthServices.check_ban_list(user.id, db)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_EMAIL)
     # if not user.confirmed:
@@ -73,7 +73,7 @@ async def login(body: OAuth2PasswordRequestForm = Depends(), db: Session = Depen
     # generate JWT
     access_token = await auth_token.create_access_token(data={"sub": user.email})
     refresh_token_ = await auth_token.create_refresh_token(data={"sub": user.email})
-    await repository_users.update_token(user, access_token, refresh_token_, db)
+    await AuthServices.update_token(user, access_token, refresh_token_, db)
     return {"access_token": access_token,
             "refresh_token": refresh_token_,
             "token_type": messages.TOKEN_TYPE}
@@ -96,14 +96,14 @@ async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(sec
     """
     token = credentials.credentials
     email = await auth_token.decode_refresh_token(token)
-    user = await repository_users.get_user_by_email(email, db)
+    user = await AuthServices.get_user_by_email(email, db)
     if user.refresh_token != token:
-        await repository_users.update_token(user, None, None, db)
+        await AuthServices.update_token(user, None, None, db)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_REFRESH_TOKEN)
 
     access_token = await auth_token.create_access_token(data={"sub": email})
     refresh_token_ = await auth_token.create_refresh_token(data={"sub": user.email})
-    await repository_users.update_token(user, access_token, refresh_token_, db)
+    await AuthServices.update_token(user, access_token, refresh_token_, db)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token_,
@@ -194,5 +194,5 @@ async def logout(
         current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)
 ):
 
-    await repository_users.add_to_ban_list(current_user, reason="logout", db=db)
+    await UserServices.add_to_ban_list(current_user, reason="logout", db=db)
     return {"message": "Logout successful"}

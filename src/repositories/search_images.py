@@ -17,8 +17,8 @@ async def search_result(keyword: str, filter_by: str, db: Session):
 
 filters = {"date": Image.created_at,
            "date_desc": desc(Image.created_at),
-           "rate": Image.rating,
-           "rate_desc": desc(Image.rating), }
+           "rate": Image.updated_at,
+           "rate_desc": desc(Image.updated_at), }
 
 
 async def search_by_description(keyword: str, filter_by: str, db: Session):

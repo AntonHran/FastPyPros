@@ -5,14 +5,14 @@ from pydantic_extra_types.phone_numbers import PhoneNumber
 
 
 class AccountModel(BaseModel):
-    first_name: str = Field(min_length=3, max_length=25)
-    last_name: str = Field(min_length=4, max_length=30)
+    first_name: str | None = Field(min_length=3, max_length=25)
+    last_name: str | None = Field(min_length=4, max_length=30)
     location: str | None = Field(min_length=0)
     company: str | None = Field(min_length=0)
     position: str | None = Field(min_length=0)
-    email: EmailStr
-    phone_number: PhoneNumber
-    birth_date: date = None
+    email: EmailStr | None
+    phone_number: PhoneNumber | None
+    birth_date: date | None
 
 
 class AccountResponse(BaseModel):

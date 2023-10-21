@@ -2,7 +2,9 @@ import enum
 
 from sqlalchemy import Column, Integer, String, Date, DateTime, Boolean, Enum, ForeignKey, func
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import declarative_base, relationship, Session
+from sqlalchemy.orm import declarative_base, relationship
+
+from src.database.connection import SessionLocal
 
 
 Base = declarative_base()
@@ -17,9 +19,9 @@ class BaseModel(Base):
 
 
 class UserRole(enum.Enum):
-    ADMIN: str = "admin"
-    MODERATOR: str = "moderator"
-    USER: str = "user"
+    admin: str = "admin"
+    moderator: str = "moderator"
+    user: str = "user"
 
 
 class User(BaseModel):
@@ -31,7 +33,7 @@ class User(BaseModel):
     password = Column(String(255), nullable=False, unique=True)
     access_token = Column(String(255), nullable=True)
     refresh_token = Column(String(255), nullable=True)
-    roles = Column("roles", Enum(UserRole), default=UserRole.USER)
+    roles = Column("roles", Enum(UserRole), default=UserRole.user)
     confirmed = Column(Boolean, default=False)
     # created_at = Column(DateTime, default=func.now())
     # updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -59,10 +61,11 @@ class Account(BaseModel):
 
     @hybrid_property
     def images_quantity(self):
-        db = Session()
+        db = SessionLocal()
         user = db.query(User).filter(User.username == self.username).first()
-        quantity = db.query(func.count(Image.user.id)).filter(Image.user_id == user.id)
-        return quantity.scalar()
+        if user:
+            quantity = db.query(func.count(Image.user_id)).filter(Image.user_id == user.id)
+            return quantity.scalar()
 
 
 class Image(BaseModel):
@@ -83,7 +86,7 @@ class Image(BaseModel):
 
     @hybrid_property
     def rating(self):
-        db = Session()
+        db = SessionLocal()
         query = func.sum(Rating.rate) / func.count(Rating.user_id)
         result = db.query(query).filter(Rating.image_id == self.id).first()
         if result[0]:
@@ -137,6 +140,5 @@ class Rating(BaseModel):
 class BanList(BaseModel):
     __tablename__ = "ban_lists"
 
-    # id = Column(Integer, primary_key=True)
     access_token = Column(String(255), nullable=False)
     reason = Column(String(50), default="logout")

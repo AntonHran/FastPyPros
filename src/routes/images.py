@@ -6,7 +6,7 @@ from fastapi_limiter.depends import RateLimiter
 
 from src.database.connection import get_db
 from src.repositories import rating as repository_rating
-from src.repositories import images as repository_images
+from src.repositories.images import ImageServices
 from src.repositories import search_images as search
 from src.repositories.tags import TagServices
 from src.repositories.comments import CommentServices
@@ -50,7 +50,7 @@ async def make_rate(body: RatingModel,
                     current_user: User = Depends(auth_user.get_current_user),
                     db: Session = Depends(get_db)):
 
-    user_image = await repository_images.check_image_owner(body.image_id, current_user, db)
+    user_image = await ImageServices.check_image_owner(body.image_id, current_user, db)
     if user_image:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.RATE_OWN_IMAGE)
     repeat_rate = await repository_rating.check_repeating_rate(body.image_id, current_user, db)
@@ -94,7 +94,7 @@ async def upload_file(file: UploadFile, description: str,
                       current_user: User = Depends(auth_user.get_current_user),
                       db: Session = Depends(get_db)):
 
-    image = await repository_images.upload_file(file, description, current_user, db)
+    image = await ImageServices.upload_file(file, description, current_user, db)
     if image is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.SOMETHING_WRONG)
     return image
@@ -105,7 +105,7 @@ async def upload_file(file: UploadFile, description: str,
             description=messages.FOR_ALL)
 async def get_image(image_id: int, db: Session = Depends(get_db)):
 
-    result = await repository_images.get_image_by_id(image_id, db)
+    result = await ImageServices.get_image(image_id, db)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return result
@@ -116,7 +116,7 @@ async def get_image(image_id: int, db: Session = Depends(get_db)):
             description=messages.FOR_ALL)
 async def get_images(current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)):
 
-    images = await repository_images.get_all_images(current_user.id, db)
+    images = await ImageServices.get_all_images(current_user.id, db)
     if images is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return images
@@ -128,12 +128,12 @@ async def get_images(current_user: User = Depends(auth_user.get_current_user), d
 async def update_description(image_id: int, description: str,
                              current_user: User = Depends(auth_user.get_current_user),
                              db: Session = Depends(get_db)):
-    user_image = await repository_images.check_image_owner(image_id, current_user, db)
+    user_image = await ImageServices.check_image_owner(image_id, current_user, db)
     if not user_image and current_user.roles in ("admin", "moderator"):
-        return await repository_images.update_description(image_id, description, db)
+        return await ImageServices.update_description(image_id, description, db)
     if not user_image and current_user.roles not in ("admin", "moderator"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.NOT_YOUR_IMAGE)
-    image = await repository_images.update_description(image_id, description, db)
+    image = await ImageServices.update_description(image_id, description, db)
     if not image:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return image
@@ -144,13 +144,13 @@ async def update_description(image_id: int, description: str,
                description=messages.FOR_ALL)
 async def delete_image(image_id: int, current_user: User = Depends(auth_user.get_current_user),
                        db: Session = Depends(get_db)):
-    user_image = await repository_images.check_image_owner(image_id, current_user, db)
+    user_image = await ImageServices.check_image_owner(image_id, current_user, db)
     if not user_image and current_user.roles == "admin":
-        result = await repository_images.delete_image(image_id, current_user.username, db)
+        result = await ImageServices.delete_image(image_id, current_user.username, db)
         return result
     if not user_image and current_user.roles != "admin":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.NOT_YOUR_IMAGE)
-    result = await repository_images.delete_image(image_id, current_user.username, db)
+    result = await ImageServices.delete_image(image_id, current_user.username, db)
     return result
 
 
@@ -249,7 +249,7 @@ async def delete_comment(comment_id: int, db: Session = Depends(get_db)):
              dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def transform_image(body: ImageUploadModel,
                           db: Session = Depends(get_db)):
-    file = await repository_images.get_image_from_cloud(body.image_id, db)
+    file = await ImageServices.get_image_from_cloud(body.image_id, db)
     if not file:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     transform_image_url = await TransformImage.upload_image(file=file,
@@ -259,7 +259,7 @@ async def transform_image(body: ImageUploadModel,
                                                             radius=body.radius)
     if not transform_image_url:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.SOMETHING_WRONG)
-    await repository_images.transform_image_to_db(transform_image_url, body.image_id, db)
+    await ImageServices.transform_image_to_db(transform_image_url, body.image_id, db)
     return transform_image_url
 
 
@@ -269,9 +269,9 @@ async def transform_image(body: ImageUploadModel,
             description=messages.FOR_ALL)
 async def qr_base64(image_id: int,
                     db: Session = Depends(get_db)):
-    image = await repository_images.get_image_by_id(image_id, db)
+    image = await ImageServices.get_image(image_id, db)
     if not image.transformed_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     qr_code = await TransformImage.qrcode_image(image.transformed_path)
-    image = await repository_images.add_qrcode_to_db(image_id, qr_code, db)
+    image = await ImageServices.add_qrcode_to_db(image_id, qr_code, db)
     return image

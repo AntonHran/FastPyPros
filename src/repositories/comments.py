@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from src.database.models import Comment, CommentToImage
 from src.database.models import User
 from src.schemes.comments import CommentModel
-from src.repositories.images import get_all_images
+from src.repositories.images import ImageServices
 
 
 class CommentServices:
@@ -22,7 +22,7 @@ class CommentServices:
 
     @staticmethod
     async def create_comment(body: CommentModel, user: User, db: Session) -> Comment:
-        user_images = await get_all_images(user.id, db)
+        user_images = await ImageServices.get_all_images(user.id, db)
         if body.image_id not in [user_image.id for user_image in user_images]:
             comment = Comment(comment=body.content, user_id=user.id)
             db.add(comment)

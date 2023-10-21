@@ -1,12 +1,6 @@
 from datetime import datetime
 
 from pydantic import BaseModel, Field, ConfigDict
-from fastapi import UploadFile
-
-
-class ImageModel(BaseModel):
-    description: str = Field(min_length=3, max_length=60)
-    file: UploadFile
 
 
 class ImageResponse(BaseModel):

@@ -2,12 +2,12 @@ from typing import List
 
 from fastapi import Depends, HTTPException, Request, status
 
-from src.database.models import User, Role
+from src.database.models import User, UserRole
 from src.services.auth import auth_user
 
 
 class RoleAccess:
-    def __init__(self, allowed_roles: List[Role]):
+    def __init__(self, allowed_roles: List[UserRole]):
         """
         The __init__ function is called when the class is instantiated.
         It sets up the instance of the class, and takes in any arguments that are required to do so.
