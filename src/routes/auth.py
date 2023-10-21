@@ -191,14 +191,20 @@ async def logout(
         current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)
 ):
     """
-    The logout function is used to log out the currently authenticated user.
-    It invalidates the user's access token and refresh token.
+    Logs out the current user by adding them to the ban list with the reason "logout."
 
-    :param current_user: User: The currently authenticated user (obtained from JWT)
-    :param db: Session: Get a database session
-    :return: A message indicating successful logout
-    :doc-author: Trelent
+    :param current_user: The current user's information.
+    :type current_user: User
+    :param db: Database session object.
+    :type db: Session
+
+    :return: A message indicating that the logout was successful.
+    :rtype: dict
+
+    :raises HTTPException: If an error occurs.
+
+    HTTP Response:
+    - 201 Created: The logout was successful.
     """
-    await repository_users.invalidate_tokens(current_user, db)
-
+    await UserServices.add_to_ban_list(current_user, reason="logout", db=db)
     return {"message": "Logout successful"}

@@ -75,16 +75,107 @@ async def update_avatar_user(file: UploadFile = File(),
     :return: The updated user
     :doc-author: Trelent
     """
-    public_id = CloudImage.generate_name_avatar(current_user.email)
+    account = await AccountServices.create_user_account(body, current_user.username, db)
+    return account
+
+
+@router.patch('/avatar/', response_model=AccountResponse, status_code=status.HTTP_200_OK,
+              dependencies=[Depends(only_users)],
+              description="For all users")
+async def update_account_avatar(file: UploadFile = File(),
+                                current_user: User = Depends(auth_user.get_current_user),
+                                db: Session = Depends(get_db)):
+    """
+    Updates the user's avatar with the provided image file.
+
+    :param file: The image file to set as the user's avatar.
+    :type file: UploadFile
+    :param current_user: The current user updating their avatar.
+    :type current_user: User
+    :param db: Database session object.
+    :type db: Session
+
+    :return: The updated user object with the new avatar URL.
+    :rtype: AccountResponse
+
+    :raises HTTPException: If an error occurs.
+
+    HTTP Response:
+    - 404 Not Found: The user's account was not found.
+
+    - 200 OK: The updated user account with the new avatar URL.
+    """
+    public_id = CloudImage.generate_file_name(current_user.username)
     r = CloudImage.upload(file.file, public_id)
     src_url = CloudImage.get_url_for_avatar(public_id, r)
     user = await repository_users.update_avatar(current_user.email, src_url, db)
     return user
 
 
-@router.get("/", response_model=List[UserResponse],
-            dependencies=[Depends(allowed_get)],
-            description="For moderators and admin only")
+@router.put("/{username}", response_model=AccountResponse, status_code=status.HTTP_200_OK,
+            dependencies=[Depends(only_users)],
+            description=messages.FOR_ALL)
+async def update_account(body: AccountModel,
+                         current_user: User = Depends(auth_user.get_current_user),
+                         db: Session = Depends(get_db)):
+    """
+    Updates the user's account with the provided account details.
+
+    :param body: The new account details to be updated.
+    :type body: AccountModel
+    :param current_user: The current user updating their account.
+    :type current_user: User
+    :param db: Database session object.
+    :type db: Session
+
+    :return: The updated user account with the new details.
+    :rtype: AccountResponse
+
+    :raises HTTPException: If an error occurs.
+
+    HTTP Response:
+    - 404 Not Found: The user's account was not found.
+
+    - 200 OK: The updated user account with the new details.
+    """
+    account = await AccountServices.update_user_account(current_user.username, body, db)
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ACCOUNT_NOT_FOUND)
+    return account
+
+
+@router.delete("/account/", status_code=status.HTTP_204_NO_CONTENT,
+               dependencies=[Depends(all_users)],
+               description=messages.FOR_ALL)
+async def remove_account(current_user: User = Depends(auth_user.get_current_user),
+                         db: Session = Depends(get_db)):
+    """
+    Removes the user's account.
+
+    :param current_user: The current user requesting the account removal.
+    :type current_user: User
+    :param db: Database session object.
+    :type db: Session
+
+    :return: None
+
+    :raises HTTPException: If an error occurs.
+
+    HTTP Response:
+    - 404 Not Found: The user's account was not found.
+
+    - 204 No Content: The user's account has been successfully removed.
+    """
+    account = await AccountServices.remove_account(current_user.username, db)
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ACCOUNT_NOT_FOUND)
+    return account
+
+
+# -----------------------------------USERS-------------------------------------
+@router.get("/", response_model=List[UserResponse], status_code=status.HTTP_200_OK,
+            dependencies=[Depends(moderators_admin)],
+            description=messages.FOR_MODERATORS_ADMIN)
 async def get_users(limit: int = Query(10, le=100),
                     offset: int = 0,
                     db: Session = Depends(get_db)):
@@ -139,3 +230,59 @@ async def remove_user(user_id: int = Path(ge=1),
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     return user
+
+
+@router.post("/{user_id}", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(admin)], description=messages.FOR_ADMIN)
+async def ban(user_id: int, reason: str, db: Session = Depends(get_db)):
+    """
+    Bans a user with the given user ID for the specified reason.
+
+    :param user_id: The ID of the user to be banned.
+    :type user_id: int
+    :param reason: The reason for banning the user.
+    :type reason: str
+    :param db: Database session object.
+    :type db: Session
+
+    :return: None
+
+    :raises HTTPException: If an error occurs.
+
+    HTTP Response:
+    - 201 Created: The user has been successfully banned.
+
+    - 403 Forbidden: The user does not have the necessary permissions to perform this action.
+
+    :return: None
+    """
+    await UserServices.add_to_ban_list(user_id, reason, db)
+
+
+@router.get("/search/", dependencies=[Depends(moderators_admin)], status_code=status.HTTP_200_OK,
+            response_model=List[UserResponse],
+            description=messages.FOR_MODERATORS_ADMIN)
+async def search_users(filter_by: str, db: Session = Depends(get_db)):
+    """
+    Searches for users based on the provided filter criteria.
+
+    :param filter_by: The filter criteria to search for users.
+    :type filter_by: str
+    :param db: Database session object.
+    :type db: Session
+
+    :return: A list of user objects matching the search criteria.
+    :rtype: List[UserResponse]
+
+    :raises HTTPException: If an error occurs.
+
+    HTTP Response:
+    - 404 Not Found: No users matching the search criteria were found.
+
+    - 200 OK: A list of user objects matching the search criteria.
+    """
+
+    users = await UserServices.search(filter_by, db)
+    if not users:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return users
