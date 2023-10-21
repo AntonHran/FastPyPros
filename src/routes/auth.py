@@ -8,12 +8,12 @@ from sqlalchemy.orm import Session
 from fastapi_limiter.depends import RateLimiter
 
 from src.database.connection import get_db
-from src.repositories import users as repository_users
 from src.schemes.users import UserModel, UserResponse, TokenModel
 # from src.schemes.email import RequestEmail, PasswordResetModel
 from src.services.auth import auth_token, auth_password, auth_user
 # from src.services.email import send_email
-from src.database.models import User, Account
+from src.database.models import User
+from src.repositories.users import AuthServices, UserServices
 from src.conf import messages
 
 
@@ -39,16 +39,16 @@ async def signup(body: UserModel,  # background_task: BackgroundTasks, request: 
     :return: A user object, which is then serialized and returned as a response
     :doc-author: Trelent
     """
-    exist_user = await repository_users.get_user_by_email(body.email, db)
+    exist_user = await AuthServices.get_user_by_email(body.email, db)
     if exist_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Account already exists")
     body.password = auth_password.get_password_hash(body.password)
-    new_user = await repository_users.create_user(body, db)
+    new_user = await UserServices.create_user(body, db)
     # background_task.add_task(send_email, new_user.email, new_user.username, str(request.base_url))
     return new_user
 
 
-@router.post("/login", response_model=TokenModel)
+@router.post("/login", status_code=status.HTTP_201_CREATED, response_model=TokenModel)
 async def login(body: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
     The login function is used to authenticate a user.
@@ -60,23 +60,26 @@ async def login(body: OAuth2PasswordRequestForm = Depends(), db: Session = Depen
     :return: An access token and a refresh token
     :doc-author: Trelent
     """
-    user = await repository_users.get_user_by_email(body.username, db)
+    user = await AuthServices.get_user_by_email(body.username, db)
+    baned_access = await AuthServices.check_ban_list(user.id, db)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_EMAIL)
     # if not user.confirmed:
         # raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.EMAIL_NOT_CONFIRMED)
     if not auth_password.verify_password(body.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_PASSWORD)
+    if baned_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=messages.BAN)
     # generate JWT
     access_token = await auth_token.create_access_token(data={"sub": user.email})
     refresh_token_ = await auth_token.create_refresh_token(data={"sub": user.email})
-    await repository_users.update_token(user, refresh_token_, db)
+    await AuthServices.update_token(user, access_token, refresh_token_, db)
     return {"access_token": access_token,
             "refresh_token": refresh_token_,
             "token_type": messages.TOKEN_TYPE}
 
 
-@router.get("/refresh_token", response_model=TokenModel)
+@router.get("/refresh_token", status_code=status.HTTP_200_OK, response_model=TokenModel)
 async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security),
                         db: Session = Depends(get_db)):
     """
@@ -93,14 +96,14 @@ async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(sec
     """
     token = credentials.credentials
     email = await auth_token.decode_refresh_token(token)
-    user = await repository_users.get_user_by_email(email, db)
+    user = await AuthServices.get_user_by_email(email, db)
     if user.refresh_token != token:
-        await repository_users.update_token(user, None, db)
+        await AuthServices.update_token(user, None, None, db)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=messages.INVALID_REFRESH_TOKEN)
 
     access_token = await auth_token.create_access_token(data={"sub": email})
     refresh_token_ = await auth_token.create_refresh_token(data={"sub": user.email})
-    await repository_users.update_token(user, refresh_token_, db)
+    await AuthServices.update_token(user, access_token, refresh_token_, db)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token_,
@@ -108,7 +111,7 @@ async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(sec
     }
 
 
-"""@router.get('/confirmed_email/{token}')
+"""@router.get('/confirmed_email/{token}', status_code=status.HTTP_200_OK, )
 async def confirmed_email(token: str, db: Session = Depends(get_db)):
     
     The confirmed_email function is used to confirm a user's email address.
@@ -134,7 +137,7 @@ async def confirmed_email(token: str, db: Session = Depends(get_db)):
     return {messages.MESSAGE: messages.EMAIL_CONFIRMED}"""
 
 """
-@router.post('/request_email')
+@router.post('/request_email', status_code=status.HTTP_201_CREATED, )
 async def request_email(body: RequestEmail, background_tasks: BackgroundTasks,
                         request: Request,  # !!!
                         db: Session = Depends(get_db)):
@@ -186,25 +189,10 @@ async def reset_password(body: PasswordResetModel, db: Session = Depends(get_db)
     return {"message": "Password reset complete!"}"""
 
 
-@router.post("/logout")
+@router.post("/logout", status_code=status.HTTP_201_CREATED)
 async def logout(
         current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)
 ):
-    """
-    Logs out the current user by adding them to the ban list with the reason "logout."
 
-    :param current_user: The current user's information.
-    :type current_user: User
-    :param db: Database session object.
-    :type db: Session
-
-    :return: A message indicating that the logout was successful.
-    :rtype: dict
-
-    :raises HTTPException: If an error occurs.
-
-    HTTP Response:
-    - 201 Created: The logout was successful.
-    """
     await UserServices.add_to_ban_list(current_user, reason="logout", db=db)
     return {"message": "Logout successful"}

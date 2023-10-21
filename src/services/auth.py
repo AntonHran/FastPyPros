@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 
 from src.database.connection import get_db
-from src.repositories import users as repository_users
+from src.repositories.users import AuthServices
 from src.conf.config import settings
 
 
@@ -36,7 +36,7 @@ class Token:
         if expires_delta:
             expire = datetime.utcnow() + timedelta(seconds=expires_delta)
         else:
-            expire = datetime.utcnow() + timedelta(minutes=150)
+            expire = datetime.utcnow() + timedelta(days=3)
         to_encode.update(
             {"iat": datetime.utcnow(), "exp": expire, "scope": "access_token"}
         )
@@ -218,7 +218,7 @@ class CurrentUser:
 
         user = self.red.get(f"user:{email}")
         if user is None:
-            user = await repository_users.get_user_by_email(email, db)
+            user = await AuthServices.get_user_by_email(email, db)
             if user is None:
                 raise credentials_exception
             self.red.set(f"user:{email}", pickle.dumps(user))

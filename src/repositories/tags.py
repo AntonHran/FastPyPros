@@ -1,40 +1,83 @@
-from typing import List
 from sqlalchemy.orm import Session
+from fastapi.exceptions import ValidationException
 
-from src.database.models import Tag, Image, TagToImage
+from src.database.models import Tag, TagToImage
 
 
-async def add_tag_to_db(tags: list, db: Session) -> None:
-    tags_from_db = db.query(Tag).all()
-    tags_list = []
-    for db_tag in tags_from_db:
-        tags_list.append(db_tag.tag)
+async def make_record(tag: str, image_id: int, db: Session):
+    res = await check_image_tags(tag, image_id, db)
+    if res:
+        record = TagToImage(tag_id=res.id, image_id=image_id)
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return record
 
-    for tag in tags:
-        if tag in tags_list:
-            continue
-        new_tags = Tag(tag=tag)
-        db.add(new_tags)
+
+async def get_image_tags(image_id: int, db: Session):
+    try:
+        tags = db.query(TagToImage.tag_id).filter_by(image_id=image_id).all()
+    except ValidationException:
+        return None
+    return tags
+
+
+async def get_tag_by_name(tag: str, db: Session):
+    try:
+        tag = db.query(Tag).filter_by(tag=tag).first()
+    except ValidationException:
+        return None
+    return tag
+
+
+async def create_tag(tag: str, db: Session) -> Tag | None:
+    tag = tag.strip('')
+    new_tag = Tag(tag=tag)
+    db.add(new_tag)
     db.commit()
-    
-async def add_tag_to_image(image_id: int, tags: list, db: Session) -> None:
-    image = db.query(Image).filter(Image.id == image_id).first()
-    for tag in tags:
-        db_tag = db.query(Tag).filter(Tag.tag != tag).first()
-        if db_tag:
-                await add_tag_to_db(tags, db)
+    db.refresh(new_tag)
+    return new_tag
 
-        new_db_tag = db.query(Tag).filter(Tag.tag == tag).first()
-        tag_to_image = TagToImage(
-            tag_id=new_db_tag.id,
-            image_id=image_id 
-        )
-        image.tags.append(new_db_tag)
-        db.add(tag_to_image)
-    db.commit()
 
-async def get_tags(skip: int, limit: int, db: Session) -> List[Tag]:
-    return db.query(Tag).offset(skip).limit(limit).all()
+async def check_image_tags(tag: str, image_id: int, db: Session):
+    tag_ = await get_tag_by_name(tag, db)
+    tags = await get_image_tags(image_id, db)
+    if tag and tag_.id not in tags and len(tags) < 5:
+        return tag_
 
-async def get_tag(tag: str, db: Session) -> Tag:
-    return db.query(Tag).filter(Tag.tag == tag).first()
+
+async def get_tag_by_id(tag_id: int, db: Session):
+    tag = db.query(Tag).filter(Tag.id == tag_id).first()
+    return tag
+
+
+class TagServices:
+    @staticmethod
+    async def add_tag_to_image(image_id: int, tag: str, db: Session):
+        res = await get_tag_by_name(tag, db)
+        if not res:
+            res = await create_tag(tag, db)
+        return res if await make_record(res.tag, image_id, db) else None
+
+    @staticmethod
+    async def update_tag(tag_id: int, new_tag: str, db: Session) -> Tag | None:
+        tag = await get_tag_by_id(tag_id, db)
+        if tag:
+            tag.name = new_tag
+            db.commit()
+            db.refresh(tag)
+        return tag
+
+    @staticmethod
+    async def get_tags(limit: int, offset: int, db: Session):
+        tags = db.query(Tag).limit(limit).offset(offset).all()
+        print(tags)
+        return tags
+
+    @staticmethod
+    async def remove_tag(tag_id: int, db: Session) -> Tag | None:
+        tag = await get_tag_by_id(tag_id, db)
+        if tag:
+            db.delete(tag)
+            db.commit()
+        return tag

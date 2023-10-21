@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
-from src.database.models import Role
+from src.database.models import UserRole
 from src.conf.messages import TOKEN_TYPE
 
 
@@ -16,7 +16,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: EmailStr
-    roles: Role
+    roles: UserRole
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

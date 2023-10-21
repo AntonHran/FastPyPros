@@ -1,29 +1,30 @@
-from pydantic import BaseModel, ConfigDict
-from fastapi import UploadFile
 from datetime import datetime
 
-from src.database.models import Image
+from pydantic import BaseModel, Field, ConfigDict
 
 
-class ResponeImageModel(BaseModel):
+class ImageResponse(BaseModel):
     id: int
     user_id: int
     description: str
+    public_id: str  # ?!?
     origin_path: str
-    public_id: str
     transformed_path: str | None
-    qr_path: str | None
-    rating: float
+    slug: str | None
+    rating: float = Field(default=0)
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-class FileModel(BaseModel):
-    file: UploadFile
 
-class ResponeUploadFile(BaseModel):
-    image: ResponeImageModel
+class ImageUploadModel(BaseModel):
+    image_id: int
+    folder: str = None
+    effect: str = None
+    border: str = None
+    radius: str = None
 
-class UpdateImageModel(BaseModel):
-    description: str
 
+class ImageUploadResponse(BaseModel):
+    transformed_image: str
+    model_config = ConfigDict(from_attributes=True)
