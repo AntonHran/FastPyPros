@@ -10,3 +10,5 @@ src/repositories/__pycache__
 src/routes/__pycache__
 src/schemes/__pycache__
 src/services/__pycache__
+htmlcov
+tests/.pytest_cache
