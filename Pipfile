@@ -26,6 +26,10 @@ httpx = "*"
 python-multipart = "*"
 celery = "*"
 qrcode = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-asyncio = "*"
+responses = "*"
 
 [dev-packages]
 sphinx = "*"

@@ -1,19 +1,19 @@
-from typing import Type
+from typing import Type, Union
 
+from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from src.services.cloud_image import CloudImage
 from src.database.models import User, Image
 from src.schemes.images import ImageResponse
 
-
 class ImageServices:
     @staticmethod
-    async def upload_file(file, description: str, user: User, db: Session):
+    async def upload_file(file: UploadFile, description: str, user: User, db: Session):
         public_id = CloudImage.generate_file_name(user.username)
         res = CloudImage.upload(file.file, public_id)
-        scr_url = CloudImage.get_url_for_avatar(public_id, res)
-        image = Image(user_id=user.id, description=description, public_id=public_id, origin_path=scr_url)
+        src_url = CloudImage.get_url_for_avatar(public_id, res)
+        image = Image(user_id=user.id, description=description, public_id=public_id, origin_path=src_url)
         db.add(image)
         db.commit()
         db.refresh(image)
@@ -21,10 +21,12 @@ class ImageServices:
         return res
 
     @staticmethod
-    async def get_image(image_id: int, db: Session):
+    async def get_image(image_id: int, db: Session) -> Union[Image, None]:
         image = await get_image_by_id(image_id, db)
-        res = await form_answer(image)
-        return res
+        if image:
+            res = await form_answer(image)
+            return res
+        return None
 
     @staticmethod
     async def get_all_images(user_id: int, db: Session):
@@ -83,11 +85,9 @@ class ImageServices:
             db.refresh(image)
         return image
 
-
 async def get_image_by_id(image_id: int, db: Session):
     image = db.query(Image).filter(Image.id == image_id).first()
     return image
-
 
 async def form_answer(image: Type[Image] | Image):
     if image:
