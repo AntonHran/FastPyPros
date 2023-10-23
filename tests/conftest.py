@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from ipaddress import ip_address
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -11,6 +12,10 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 from main import app
 from src.database.models import Base
 from src.database.connection import get_db
+
+
+def mocked_ip_address(ip_str):
+    return ip_address(ip_str)
 
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -22,6 +27,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 
 # pytest --cov=. --cov-report html tests
+# pytest --cov=. --cov-report html tests/test_route_images_rating.py
+# pytest --cov=. --cov-report html tests/test_route_auth.py
 @pytest.fixture(scope="module")
 def session():
     # Create the database
@@ -71,5 +78,15 @@ def account():
             "phone_number": "+380501234567",
             "location": "city_1"}
 
-# BASE_DIR = pathlib.Path(__file__).parent
-# directory=BASE_DIR/"folder_name"
+
+@pytest.fixture(scope="module")
+def image():
+    return {
+        # "user_id": 1,
+        "description": "some image",
+        "public_id": "public_id",
+        "origin_path": "origin_path",
+        "transformed_path": "",
+        "slug": "",
+        "rating": 0
+    }

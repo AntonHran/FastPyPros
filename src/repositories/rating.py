@@ -6,7 +6,7 @@ from src.schemes.rating import RatingModel
 
 
 async def get_image_rates(limit: int, offset: int, image_id: int, db: Session):
-    result = db.query(Rating).limit(limit).filter_by(image_id=image_id).offset(offset).all()
+    result = db.query(Rating).filter_by(image_id=image_id).limit(limit).offset(offset).all()
     return result
 
 

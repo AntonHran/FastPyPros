@@ -206,16 +206,50 @@ def test_logout(client, user, session):
 def test_confirmed_email(client, user, session, monkeypatch):
     mock_send_email = MagicMock()
     monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
-    mock_send_email.return_value = "confirmation_token"
+    mock_send_get_email_from_token = MagicMock()
+    monkeypatch.setattr("src.services.auth.Token.get_email_from_token", mock_send_get_email_from_token)
+    mock_send_get_email_from_token.return_value = user["email"]
     confirmation_token = mock_send_email()
-    # Викликати /confirmed_email/{token} з підтверджувальним токеном
-    response = client.get(f"api/auth/confirmed_email/{confirmation_token}")
-    assert response.status_code == 200  # Очікується статус код 200
-    data = response.json()
-    assert (
-        data["message"] == messages.EMAIL_CONFIRMED
-    )  # Переконайтеся, що повідомлення про підтвердження електронної пошти правильне
+    cur_user: User = session.query(User).filter(User.email == user.get("email")).first()
 
-    # Переконайтеся, що користувач тепер підтверджений
+    response = client.get(f"api/auth/confirmed_email/{confirmation_token}",
+                          headers={"Authorization": f"Bearer {cur_user.access_token}"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == messages.EMAIL_ALREADY_CONFIRMED
     confirmed_user = session.query(User).filter(User.email == user["email"]).first()
     assert confirmed_user.confirmed == True
+
+
+def test_confirmed_email_(client, user, session, monkeypatch):
+    mock_send_email = MagicMock()
+    monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
+    mock_send_get_email_from_token = MagicMock()
+    monkeypatch.setattr("src.services.auth.Token.get_email_from_token", mock_send_get_email_from_token)
+    mock_send_get_email_from_token.return_value = user["password"]
+    confirmation_token = mock_send_email()
+    cur_user: User = session.query(User).filter(User.email == user.get("email")).first()
+
+    response = client.get(f"api/auth/confirmed_email/{confirmation_token}",
+                          headers={"Authorization": f"Bearer {cur_user.access_token}"})
+    assert response.status_code == 400
+    data = response.json()
+    assert data["detail"] == messages.VERIFICATION_ERROR
+
+
+def test_confirmed_email__(client, user, session, monkeypatch):
+    mock_send_email = MagicMock()
+    monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
+    mock_send_get_email_from_token = MagicMock()
+    monkeypatch.setattr("src.services.auth.Token.get_email_from_token", mock_send_get_email_from_token)
+    mock_send_get_email_from_token.return_value = user["email"]
+    confirmation_token = mock_send_email()
+    cur_user: User = session.query(User).filter(User.email == user.get("email")).first()
+    cur_user.confirmed = False
+    session.commit()
+    session.refresh(cur_user)
+    response = client.get(f"api/auth/confirmed_email/{confirmation_token}",
+                          headers={"Authorization": f"Bearer {cur_user.access_token}"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == messages.EMAIL_CONFIRMED

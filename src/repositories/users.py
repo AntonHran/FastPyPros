@@ -1,7 +1,7 @@
 from typing import Type
 
 from sqlalchemy.orm import Session
-from fastapi.exceptions import ValidationException
+from fastapi.exceptions import ValidationException, HTTPException
 from libgravatar import Gravatar
 
 from src.database.models import User, Account, BanList
@@ -15,10 +15,14 @@ class AccountServices:
     async def create_user_account(body: AccountModel, username: str, db: Session):
         gr = Gravatar(body.email)
         avatar = gr.get_image()
-        new_account = Account(**body.model_dump(), username=username, avatar=avatar)
-        db.add(new_account)
-        db.commit()
-        db.refresh(new_account)
+        try:
+            new_account = Account(**body.model_dump(), username=username, avatar=avatar)
+            db.add(new_account)
+            db.commit()
+            db.refresh(new_account)
+        except HTTPException:
+            print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            return
         res = await form_response(new_account)
         return res
 
@@ -38,8 +42,8 @@ class AccountServices:
         if account:
             db.delete(account)
             db.commit()
-            res = await form_response(account)
-            return res
+            # res = await form_response(account)
+            return account
 
     @staticmethod
     async def get_account_by_username(username: str, db: Session):

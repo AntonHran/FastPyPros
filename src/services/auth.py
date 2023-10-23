@@ -12,6 +12,7 @@ from jose import JWTError, jwt
 from src.database.connection import get_db
 from src.repositories.users import AuthServices
 from src.conf.config import settings
+from src.conf import messages
 
 
 class Token:
@@ -92,12 +93,12 @@ class Token:
                 return email
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid scope for token",
+                detail=messages.INVALID_SCOPE_FOR_TOKEN,
             )
         except JWTError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
+                detail=messages.COULD_NOT_VALIDATE_CREDENTIALS,
             )
 
     def create_email_token(self, data: dict):  # !!!
@@ -139,13 +140,13 @@ class Token:
                 return email
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid scope for token",
+                detail=messages.INVALID_SCOPE_FOR_TOKEN,
             )
         except JWTError as e:
             print(e)
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Invalid token for email verification",
+                detail=messages.INVALID_TOKEN_EMAIL_VERIFICATION,
             )
 
 

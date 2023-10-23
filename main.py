@@ -1,16 +1,16 @@
 # import os
 # import sys
-# import time
+import time
 from ipaddress import ip_address
-# from typing import Callable
+from typing import Callable
 
 import redis.asyncio as redis
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException  # , Request, status
-# from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-# from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.cors import CORSMiddleware
 from fastapi_limiter import FastAPILimiter
 
@@ -19,7 +19,7 @@ from fastapi_limiter import FastAPILimiter
 # sys.path.append(os.path.dirname(SCRIPT_DIR))
 
 from src.database.connection import get_db
-from src.routes import images, auth, users
+from src.routes import images, auth, users, rating, images_tags, images_comments, images_search, users_accounts
 from src.conf.config import settings
 from src.services.tasks import remove_tokens
 
@@ -57,10 +57,14 @@ ALLOWED_IPS = [
     ip_address("127.0.0.1"),
     ]
 
-"""
-@app.middleware("http")
+
+def get_client_ip(request):
+    return ip_address(request.client.host)
+
+
+'''@app.middleware("http")
 async def limit_access_by_ip(request: Request, call_next: Callable):
-    
+    """
     The limit_access_by_ip function is a middleware function that limits access to the API by IP address.
     It checks if the client's IP address is in ALLOWED_IPS, and if not, returns a 403 Forbidden response.
 
@@ -68,18 +72,18 @@ async def limit_access_by_ip(request: Request, call_next: Callable):
     :param call_next: Callable: Pass the next function in the pipeline
     :return: A jsonresponse object with a status code of 403
     :doc-author: Trelent
-    
-    ip = ip_address(request.client.host)
+    """
+    # ip = ip_address(request.client.host)
+    ip = get_client_ip(request)
     if ip not in ALLOWED_IPS:
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Not allowed IP address"})
     response = await call_next(request)
-    return response
-"""
+    return response'''
 
-"""
+
 @app.middleware("http")
 async def custom_middleware(request: Request, call_next: Callable):
-    
+    """
     The custom_middleware function is a middleware function that will be called before the request
     is passed to the route handler. It will catch any SQLAlchemy errors and return them as JSON responses,
     and it will add a performance header to every response.
@@ -88,7 +92,7 @@ async def custom_middleware(request: Request, call_next: Callable):
     :param call_next: Callable: Pass the request to the next middleware in line
     :return: A response object
     :doc-author: Trelent
-    
+    """
     start = time.time()
     try:
         response = await call_next(request)
@@ -96,7 +100,7 @@ async def custom_middleware(request: Request, call_next: Callable):
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": str(error)})
     duration = time.time() - start
     response.headers["performance"] = str(duration)
-    return response"""
+    return response
 
 
 @app.get("/")
@@ -134,6 +138,11 @@ def healthchecker(db: Session = Depends(get_db)):
 app.include_router(images.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
+app.include_router(users_accounts.router, prefix="/api")
+app.include_router(images_comments.router, prefix="/api")
+app.include_router(images_tags.router, prefix="/api")
+app.include_router(rating.router, prefix="/api")
+app.include_router(images_search.router, prefix="/api")
 
 
 if __name__ == '__main__':

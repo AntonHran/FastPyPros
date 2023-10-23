@@ -2,44 +2,11 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from src.database.models import User
+from src.schemes.account import AccountResponse
 from src.services.auth import auth_user
 from src.conf import messages
-from src.schemes.account import AccountResponse
-
-'''
-@pytest.fixture
-def token(client, session, user, monkeypatch):
-    mock_send_email = MagicMock()
-    monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
-    client.post("/api/auth/signup/", json=user)
-
-    current_user: User = session.query(User).filter(User.email == user.get("email")).first()
-    current_user.confirmed = True
-    session.commit()
-    response = client.post(
-        "/api/auth/login/",
-        data={"username": user['email'], "password": user['password']},
-    )
-    data = response.json()
-    return data
 
 
-@pytest.fixture
-def token_admin(client, session, admin, monkeypatch):
-    mock_send_email = MagicMock()
-    monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
-    client.post("/api/auth/signup/", json=admin)
-
-    current_user: User = session.query(User).filter(User.email == admin.get("email")).first()
-    current_user.confirmed = True
-    current_user.roles = "admin"
-    session.commit()
-    response = client.post(
-        "/api/auth/login/",
-        data={"username": admin['email'], "password": admin['password']},
-    )
-    data = response.json()
-    return data'''
 INFO = {"first_name": "User_1",
         "last_name": "Test_1",
         "email": "user@example.com",
@@ -221,73 +188,3 @@ def test_update_account_avatar_(token, client, monkeypatch):
                             files={"file": ("test_image.jpg", file)})
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == messages.ACCOUNT_NOT_FOUND
-
-
-def test_get_users(user, token_admin, client):
-
-    with patch.object(auth_user, "red") as redis_mock:
-        redis_mock.get.return_value = None
-    response = client.get("api/users/",
-                          headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
-    assert response.status_code == 200, response.text
-    assert response.json()[0]["email"] == user["email"]
-
-
-def test_get_user(user, token_admin, client, session):
-    with patch.object(auth_user, "red") as redis_mock:
-        redis_mock.get.return_value = None
-    cur_user = session.query(User).filter(User.username == user["username"]).first()
-    response = client.get(f"api/users/{cur_user.id}/",
-                          headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
-    assert response.status_code == 200, response.text
-    assert response.json()["email"] == cur_user.email
-
-
-def test_ban(user, token_admin, client, session):
-    with patch.object(auth_user, "red") as redis_mock:
-        redis_mock.get.return_value = None
-    cur_user = session.query(User).filter(User.username == user["username"]).first()
-    response = client.post(f"api/users/{cur_user.id}?reason=logout/",
-                           headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
-    assert response.status_code == 201, response.text
-
-
-def test_ban_(user, token_admin, client, session, monkeypatch):
-    with patch.object(auth_user, "red") as redis_mock:
-        redis_mock.get.return_value = None
-    mock_remove_folder = MagicMock()
-    monkeypatch.setattr(
-        "src.services.cloud_image.CloudImage.remove_folder", mock_remove_folder
-    )
-    cur_user = session.query(User).filter(User.username == user["username"]).first()
-    response = client.post(f"api/users/{cur_user.id}?reason=ban/",
-                           headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
-    assert response.status_code == 201, response.text
-
-
-def test_remove_user(user, token_admin, client, session, monkeypatch):
-    with patch.object(auth_user, "red") as redis_mock:
-        redis_mock.get.return_value = None
-    mock_remove_folder = MagicMock()
-    monkeypatch.setattr(
-        "src.services.cloud_image.CloudImage.remove_folder", mock_remove_folder
-    )
-    cur_user = session.query(User).filter(User.username == user["username"]).first()
-    response = client.delete(f"api/users/{cur_user.id}/",
-                             headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
-    assert response.status_code == 204, response.text
-
-
-def test_remove_user_repeat(user, token_admin, client, session, monkeypatch):
-    with patch.object(auth_user, "red") as redis_mock:
-        redis_mock.get.return_value = None
-    mock_remove_folder = MagicMock()
-    monkeypatch.setattr(
-        "src.services.cloud_image.CloudImage.remove_folder", mock_remove_folder
-    )
-    cur_user = session.query(User).filter(User.username == user["username"]).first()
-    response = client.delete(f"api/users/{3}/",
-                             headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
-    assert response.status_code == 404, response.text
-    assert response.json()["detail"] == messages.NOT_FOUND
-

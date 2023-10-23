@@ -2,7 +2,6 @@ from typing import List
 
 from fastapi import Depends, HTTPException, Path, Query, APIRouter, status, UploadFile
 from sqlalchemy.orm import Session
-from fastapi_limiter.depends import RateLimiter
 
 from src.database.connection import get_db
 from src.repositories import rating as repository_rating
@@ -25,9 +24,9 @@ from src.conf import messages
 router = APIRouter(prefix="/images", tags=["images"])
 
 
-# ----------------------------------------RATING------------------------------------
+'''# ----------------------------------------RATING------------------------------------
 @router.get("/rating/{image_id}", status_code=status.HTTP_200_OK, response_model=List[RatingResponse],
-            dependencies=[Depends(allowed_roles.moderators_admin), Depends(RateLimiter(times=10, seconds=60))],
+            dependencies=[Depends(allowed_roles.moderators_admin)],  # Depends(RateLimiter(times=10, seconds=60))],
             description=messages.FOR_MODERATORS_ADMIN
             )
 async def get_rate(
@@ -64,26 +63,15 @@ async def make_rate(body: RatingModel,
                dependencies=[Depends(allowed_roles.moderators_admin)],
                description=messages.FOR_MODERATORS_ADMIN
                )
-async def delete_rate(image_id: int = Path(ge=1),
-                      user_id: int = Path(ge=1),
+async def delete_rate(image_id: int,
+                      user_id: int,
                       db: Session = Depends(get_db)):
 
     rate = await repository_rating.remove_rate(image_id, user_id, db)
     if not rate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
-    return rate
+    return rate'''
 
-
-# -------------------------------------SEARCH---------------------------------------
-@router.get("/search/", status_code=status.HTTP_200_OK,
-            response_model=List[ImageResponse],
-            dependencies=[Depends(allowed_roles.all_users)],
-            description=messages.FOR_ALL)
-async def search_images(keyword: str, filter_by: str, db: Session = Depends(get_db)):
-    images = await search.search_result(keyword, filter_by, db)
-    if not images:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
-    return images
 
 
 # -------------------------------------IMAGES---------------------------------------
@@ -153,7 +141,7 @@ async def delete_image(image_id: int, current_user: User = Depends(auth_user.get
     result = await ImageServices.delete_image(image_id, current_user.username, db)
     return result
 
-
+'''
 # ----------------------------------------TAGS--------------------------------------
 @router.get("/tags/", response_model=List[TagResponse], dependencies=[Depends(allowed_roles.all_users)],
             status_code=status.HTTP_200_OK, description=messages.FOR_ALL)
@@ -189,10 +177,10 @@ async def add_tag_to_image(image_id: int, tag: str, db: Session = Depends(get_db
     result = await TagServices.add_tag_to_image(image_id, tag, db)
     if result is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.LIMIT_EXCEEDED)
-    return result
+    return result'''
 
 
-# -------------------------------------COMMENTS-------------------------------------
+'''# -------------------------------------COMMENTS-------------------------------------
 @router.get("/image_comments/", status_code=status.HTTP_200_OK,
             response_model=List[CommentResponse],
             dependencies=[Depends(allowed_roles.all_users)],
@@ -241,11 +229,10 @@ async def delete_comment(comment_id: int, db: Session = Depends(get_db)):
     comment = CommentServices.delete_comment(comment_id, db)
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
-    return comment
+    return comment'''
 
 
-# -----------------------------------CLOUD_SERVICES----------------------------------response_model=ImageUploadResponse,
-@router.post("/transform/", status_code=status.HTTP_200_OK,
+@router.post("/{image_id}/transform/", status_code=status.HTTP_200_OK,
              dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def transform_image(body: ImageUploadModel,
                           db: Session = Depends(get_db)):
@@ -263,10 +250,10 @@ async def transform_image(body: ImageUploadModel,
     return transform_image_url
 
 
-@router.get("/qrcode/{image_id}", status_code=status.HTTP_201_CREATED,
-            response_model=ImageResponse,
-            dependencies=[Depends(allowed_roles.all_users)],
-            description=messages.FOR_ALL)
+@router.post("/{image_id}/qrcode/", status_code=status.HTTP_201_CREATED,
+             response_model=ImageResponse,
+             dependencies=[Depends(allowed_roles.all_users)],
+             description=messages.FOR_ALL)
 async def qr_base64(image_id: int,
                     db: Session = Depends(get_db)):
     image = await ImageServices.get_image(image_id, db)
