@@ -11,7 +11,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
 from main import app
-from src.database.models import Base, User, Image
+from src.database.models import Base, User, Image, Tag
 from src.database.connection import get_db
 from src.schemes.images import ImageResponse
 
@@ -66,8 +66,8 @@ def user():
         email='example@mail.com', 
         password='password123',
     )
-@pytest.fixture(scope='module')
 
+@pytest.fixture(scope='module')
 def image():
     return Image(
         id=1,
@@ -80,6 +80,10 @@ def image():
         created_at=datetime.now(),
         updated_at=datetime.now()
     )
+
+@pytest.fixture(scope='module')
+def tag():
+    return 'tag'
 
 @pytest.fixture(scope='module')
 def mock_form_answer():
