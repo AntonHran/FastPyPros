@@ -1,6 +1,6 @@
 import pytestfrom fastapi import status
-from PhotoShare.app.models.user import User, UserRole
-from PhotoShare.app.services.comment_services import CommentServices
+from PhotoShare.src.database.user import User, UserRole
+from PhotoShare.src.services.comment_services import CommentServices
 
 
 @pytest.fixture(scope='function')
