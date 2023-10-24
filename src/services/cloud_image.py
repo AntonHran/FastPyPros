@@ -2,11 +2,14 @@ import hashlib
 from datetime import datetime
 import requests
 
+from fastapi.exceptions import HTTPException
+from fastapi import status
 import cloudinary
 import cloudinary.api
 import cloudinary.uploader
 
 from src.conf.config import settings
+from src.conf import messages
 
 
 class CloudImage:
@@ -60,7 +63,10 @@ class CloudImage:
 
     @staticmethod
     def remove_folder(username):
-        cloudinary.api.delete_folder(username)
+        try:
+            cloudinary.api.delete_folder(username)
+        except BaseException:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NO_FOLDER)
 
     @staticmethod
     def get_file_by_url(public_id: str):

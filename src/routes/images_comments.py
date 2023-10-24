@@ -15,7 +15,7 @@ from src.conf import messages
 router = APIRouter(prefix="/images", tags=["images"])
 
 
-@router.get("/{image_id}/comments/", status_code=status.HTTP_200_OK,
+@router.get("/{image_id}/comments", status_code=status.HTTP_200_OK,
             response_model=List[CommentResponse],
             dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
@@ -39,7 +39,7 @@ async def create_comment(body: CommentModel,
     return comment
 
 
-@router.put("/{image_id}/comments/{comment_id}/", response_model=CommentResponse, status_code=status.HTTP_200_OK,
+@router.put("/{image_id}/comments/{comment_id}", response_model=CommentResponse, status_code=status.HTTP_200_OK,
             dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def update_comment(comment_id: int, new_comment: str,
                          current_user: User = Depends(auth_user.get_current_user),
@@ -60,7 +60,7 @@ async def update_comment(comment_id: int, new_comment: str,
                description=messages.FOR_ADMIN)
 async def delete_comment(comment_id: int, db: Session = Depends(get_db)):
 
-    comment = CommentServices.delete_comment(comment_id, db)
+    comment = await CommentServices.delete_comment(comment_id, db)
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
     return comment

@@ -2,17 +2,22 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, union, select
 
 from src.database.models import Image, TagToImage, Tag, Account
+from src.schemes.search import SearchModel
 
 
-async def search_result(keyword: str, filter_by: str, db: Session):
-    result_by_description = select([await search_by_description(keyword, filter_by, db)])  # ???
-    result_by_tags = select(await search_by_tag(keyword, filter_by, db))
-    if result_by_description and result_by_tags:
-        return union(result_by_description, result_by_tags)
-    if result_by_description and not result_by_tags:
-        return result_by_description
-    if result_by_tags and not result_by_description:
-        return result_by_tags
+async def search_result(body: SearchModel, db: Session):
+    search_data = {key: value for key, value in body.model_dump().items() if value}
+    rd, rt = [], []
+    if body.description:
+        rd = select([await search_by_description(body.description, db)])  # ???
+    if body.tags:
+        rt = select(await search_by_tag(body.tags, db))
+    if rd and rt:
+        return union(rd, rt)
+    if rd and not rt:
+        return rd
+    if rt and not rd:
+        return rt
 
 
 filters = {"date": Image.created_at,
@@ -21,8 +26,8 @@ filters = {"date": Image.created_at,
            "rate_desc": desc(Image.updated_at), }
 
 
-async def search_by_description(keyword: str, filter_by: str, db: Session):
-    result_by_description = db.query(Image).filter(Image.description.ilike("%" + keyword + "%")).order_by(filters[filter_by]).all()
+async def search_by_description(keyword: str, db: Session):
+    result_by_description = db.query(Image).filter(Image.description.ilike("%" + keyword + "%")).order_by(filters["date"]).all()
     return result_by_description
 
 
@@ -36,10 +41,10 @@ async def get_image_ids(tag_ids: list[int], db: Session):
     return image_ids_by_tag
 
 
-async def search_by_tag(keyword: str, filter_by: str, db: Session):
+async def search_by_tag(keyword: str, db: Session):
     tag_ids = await get_tags(keyword, db)
     image_ids_by_tag = await get_image_ids(tag_ids, db)
-    result_by_tags = db.query(Image).filter(Image.id.in_(image_ids_by_tag)).order_by(filters[filter_by]).all()
+    result_by_tags = db.query(Image).filter(Image.id.in_(image_ids_by_tag)).order_by(filters["rate"]).all()
     return result_by_tags
 
 

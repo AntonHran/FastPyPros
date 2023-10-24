@@ -23,7 +23,14 @@ class CommentServices:
     @staticmethod
     async def create_comment(body: CommentModel, user: User, db: Session) -> Comment:
         user_images = await ImageServices.get_all_images(user.id, db)
-        if body.image_id not in [user_image.id for user_image in user_images]:
+        if user_images and body.image_id not in [user_image.id for user_image in user_images]:
+            comment = Comment(comment=body.content, user_id=user.id)
+            db.add(comment)
+            db.commit()
+            db.refresh(comment)
+            await create_record(comment.id, body.image_id, db)
+            return comment
+        if not user_images:
             comment = Comment(comment=body.content, user_id=user.id)
             db.add(comment)
             db.commit()

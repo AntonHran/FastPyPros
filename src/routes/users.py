@@ -78,7 +78,10 @@ async def remove_user(user_id: int = Path(ge=1),
              dependencies=[Depends(admin)], description=messages.FOR_ADMIN)
 async def ban(user_id: int, reason: str, db: Session = Depends(get_db)):
 
-    await UserServices.add_to_ban_list(user_id, reason, db)
+    user = await UserServices.add_to_ban_list(user_id, reason, db)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
+    return user
 
 
 @router.get("/search/", dependencies=[Depends(moderators_admin)], status_code=status.HTTP_200_OK,

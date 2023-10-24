@@ -42,6 +42,8 @@ async def create_tag(tag: str, db: Session) -> Tag | None:
 async def check_image_tags(tag: str, image_id: int, db: Session):
     tag_ = await get_tag_by_name(tag, db)
     tags = await get_image_tags(image_id, db)
+    if not tags:
+        return tag_
     if tag and tag_.id not in tags and len(tags) < 5:
         return tag_
 

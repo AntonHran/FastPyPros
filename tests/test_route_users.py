@@ -6,40 +6,7 @@ from src.services.auth import auth_user
 from src.conf import messages
 from src.schemes.account import AccountResponse
 
-'''
-@pytest.fixture
-def token(client, session, user, monkeypatch):
-    mock_send_email = MagicMock()
-    monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
-    client.post("/api/auth/signup/", json=user)
 
-    current_user: User = session.query(User).filter(User.email == user.get("email")).first()
-    current_user.confirmed = True
-    session.commit()
-    response = client.post(
-        "/api/auth/login/",
-        data={"username": user['email'], "password": user['password']},
-    )
-    data = response.json()
-    return data
-
-
-@pytest.fixture
-def token_admin(client, session, admin, monkeypatch):
-    mock_send_email = MagicMock()
-    monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
-    client.post("/api/auth/signup/", json=admin)
-
-    current_user: User = session.query(User).filter(User.email == admin.get("email")).first()
-    current_user.confirmed = True
-    current_user.roles = "admin"
-    session.commit()
-    response = client.post(
-        "/api/auth/login/",
-        data={"username": admin['email'], "password": admin['password']},
-    )
-    data = response.json()
-    return data'''
 INFO = {"first_name": "User_1",
         "last_name": "Test_1",
         "email": "user@example.com",
@@ -84,7 +51,7 @@ def token_admin(client, session, admin, monkeypatch):
     return data
 
 
-def test_read_users_me_without_account(token, user, client, session):
+def test_read_without_account(token, user, client, session):
     with patch.object(auth_user, "red") as redis_mock:
         redis_mock.get.return_value = None
     response = client.get(f"api/users/accounts/{user.get('username')}/",
@@ -247,7 +214,8 @@ def test_ban(user, token_admin, client, session):
     with patch.object(auth_user, "red") as redis_mock:
         redis_mock.get.return_value = None
     cur_user = session.query(User).filter(User.username == user["username"]).first()
-    response = client.post(f"api/users/{cur_user.id}?reason=logout/",
+    assert cur_user.email == user["email"]
+    response = client.post(f"api/users/{cur_user.id}?reason=logout",
                            headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
     assert response.status_code == 201, response.text
 
@@ -260,7 +228,7 @@ def test_ban_(user, token_admin, client, session, monkeypatch):
         "src.services.cloud_image.CloudImage.remove_folder", mock_remove_folder
     )
     cur_user = session.query(User).filter(User.username == user["username"]).first()
-    response = client.post(f"api/users/{cur_user.id}?reason=ban/",
+    response = client.post(f"api/users/{cur_user.id}?reason=ban",
                            headers={"Authorization": f"Bearer {token_admin['access_token']}"}, )
     assert response.status_code == 201, response.text
 

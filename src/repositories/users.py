@@ -21,7 +21,6 @@ class AccountServices:
             db.commit()
             db.refresh(new_account)
         except HTTPException:
-            print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             return
         res = await form_response(new_account)
         return res
@@ -110,6 +109,7 @@ class UserServices:
         new_record = BanList(access_token=user.access_token, reason=reason)
         db.add(new_record)
         db.commit()
+        return user
 
     @staticmethod
     async def search(filter_by: str, db: Session):

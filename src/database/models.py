@@ -46,7 +46,7 @@ class Account(BaseModel):
     __tablename__ = "accounts"
 
     # id = Column(Integer, primary_key=True)
-    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"))
+    username = Column(String, ForeignKey("users.username"))
     first_name = Column(String(30), nullable=False)
     last_name = Column(String(60), nullable=False)
     location = Column(String(40), nullable=True)
@@ -115,16 +115,16 @@ class CommentToImage(BaseModel):
     __tablename__ = "comment_images"
 
     # id = Column(Integer, primary_key=True)
-    image_id = Column(Integer, ForeignKey("images.id", ondelete="CASCADE"), nullable=False)
-    comment_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=False)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
+    comment_id = Column(Integer, ForeignKey("comments.id"), nullable=False)
 
 
 class TagToImage(BaseModel):
     __tablename__ = "tag_images"
 
     # id = Column(Integer, primary_key=True)
-    tag_id = Column(Integer, ForeignKey("tags.id", ondelete="CASCADE"), nullable=False)
-    image_id = Column(Integer, ForeignKey("images.id", ondelete="CASCADE"), nullable=False)
+    tag_id = Column(Integer, ForeignKey("tags.id"), nullable=False)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
 
 
 class Rating(BaseModel):

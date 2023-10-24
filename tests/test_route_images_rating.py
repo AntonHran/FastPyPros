@@ -80,50 +80,27 @@ def test_upload_file(image, token, client, monkeypatch):
     
     file = "file".encode()
     response = client.post(
-        f"api/images/?description={image.get('description')}",
+        f"api/images/?description={image.description}",
         headers={"Authorization": f"Bearer {token['access_token']}"},
-        files={"file": ("test_image.jpg", file)},
+        files={"file": ("test_image_.jpg", file)},
     )
     assert response.status_code == 201, response.text
     assert response.json()["origin_path"] == mock_get_url()
 
 
-def test_make_rate(image, token, client, session):
-    img = Image(description=image["description"],
-                public_id="public_id",
-                origin_path="origin_path",
-                transformed_path="",
-                slug="",
-                rating=0)
-    session.add(img)
-    session.commit()
-    session.refresh(img)
-    image_ = session.query(Image).filter(Image.description == image["description"]).first()
-    response = client.post(f"api/images/{image_.id}/rate/",
+def test_make_rate(token_admin, client, session, image):
+    image_ = session.query(Image).filter(Image.description == image.description).first()
+    response = client.post(f"api/images/{image_.id}/rating/",
                            json={"image_id": image_.id, "rate": 4},
-                           headers={"Authorization": f"Bearer {token['access_token']}"})
+                           headers={"Authorization": f"Bearer {token_admin['access_token']}"})
     assert response.status_code == 201, response.text
     image = response.json()
     assert image["rate"] == 4
 
 
-def test_delete_rate(token_admin, take_image, user, client, session):
-    cur_user = session.query(User).filter(User.username == user["username"]).first()
-    image_ = (
-        session.query(Image).filter(Image.description == take_image["description"]).first()
-    )
-    res = session.query(Rating).filter(Rating.image_id == image_.id, Rating.user_id == cur_user.id).first()
-    assert res.image_id == image_.id
-    response = client.delete(
-        f"api/images/{3}/rating/user_id={1}",
-        headers={"Authorization": f"Bearer {token_admin['access_token']}"},
-    )
-    assert response.status_code == 204, response.text
-
-
 def test_make_rate_own(image, token, client, session):
-    image_ = session.query(Image).filter(Image.description == image["description"]).first()
-    response = client.post(f"api/images/{image_.id}/rate/",
+    image_ = session.query(Image).filter(Image.description == image.description).first()
+    response = client.post(f"api/images/{image_.id}/rating/",
                            json={"image_id": image_.id, "rate": 5},
                            headers={"Authorization": f"Bearer {token['access_token']}"})
     assert response.status_code == 409, response.text
@@ -131,25 +108,36 @@ def test_make_rate_own(image, token, client, session):
     assert image["detail"] == messages.RATE_OWN_IMAGE
 
 
-def test_make_rate_repeat(take_image, token, client, session):
-    image_ = session.query(Image).filter(Image.description == take_image["description"]).first()
-    response = client.post(f"api/images/{image_.id}/rate/",
+def test_make_rate_repeat(take_image, token_admin, client, session, image):
+    image_ = session.query(Image).filter(Image.description == image.description).first()
+    response = client.post(f"api/images/{image_.id}/rating/",
                            json={"image_id": image_.id, "rate": 4},
-                           headers={"Authorization": f"Bearer {token['access_token']}"})
+                           headers={"Authorization": f"Bearer {token_admin['access_token']}"})
     assert response.status_code == 409, response.text
     image = response.json()
     assert image["detail"] == messages.REPEAT_RATE
 
 
-def test_get_rates(token_admin, take_image, client, session):
-    image_ = (
+def test_get_rates(token_admin, image, client, session):
+    '''image_ = (
         session.query(Image).filter(Image.description == take_image["description"]).first()
-    )
-    rec = session.query(Rating).filter(Rating.image_id == image_.id).all()
+    )'''
+    rec = session.query(Rating).filter(Rating.image_id == image.id).all()
     assert rec[0].rate == 4
-    response = client.get(f"api/images/{image_.id}/rating/",
+    response = client.get(f"api/images/{image.id}/rating/",
                           headers={"Authorization": f"Bearer {token_admin['access_token']}"})
     assert response.status_code == 200, response.text
+
+
+def test_delete_rate(token_admin, image, admin, client, session):
+    cur_user = session.query(User).filter(User.username == admin["username"]).first()
+    res = session.query(Rating).filter(Rating.image_id == image.id, Rating.user_id == cur_user.id).first()
+    assert res.image_id == image.id
+    response = client.delete(
+        f"api/images/{image.id}/rating?user_id={cur_user.id}",
+        headers={"Authorization": f"Bearer {token_admin['access_token']}"},
+    )
+    assert response.status_code == 204, response.text
 
 
 def test_get_rates_(token_admin, image, client, session):
@@ -161,7 +149,7 @@ def test_get_rates_(token_admin, image, client, session):
 def test_delete_rate_(token_admin, image, user, client, session):
     cur_user = session.query(User).filter(User.username == user["username"]).first()
     image_ = (
-        session.query(Image).filter(Image.description == image["description"]).first()
+        session.query(Image).filter(Image.description == image.description).first()
     )
     response = client.delete(
         f"api/images/{image_.id}/rating//{cur_user.id}",

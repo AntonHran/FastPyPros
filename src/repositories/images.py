@@ -29,12 +29,12 @@ class ImageServices:
     @staticmethod
     async def get_all_images(user_id: int, db: Session):
         images = db.query(Image).filter(Image.user_id == user_id).all()
-        res = []
         if images:
+            res = []
             for image in images:
                 response = await form_answer(image)
                 res.append(response)
-        return res
+            return res
 
     @staticmethod
     async def update_description(image_id: int, description: str, db: Session):

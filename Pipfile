@@ -26,6 +26,8 @@ httpx = "*"
 python-multipart = "*"
 celery = "*"
 qrcode = "*"
+pytest-asyncio = "*"
+fastapi-filter = "*"
 
 [dev-packages]
 sphinx = "*"

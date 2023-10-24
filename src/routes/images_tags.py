@@ -41,7 +41,7 @@ async def delete_tag(tag_id: int, db: Session = Depends(get_db)):
     return tag
 
 
-@router.post('/{image_id}/tags/', response_model=TagResponse, status_code=status.HTTP_201_CREATED,
+@router.post('/{image_id}/tags', response_model=TagResponse, status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(allowed_roles.all_users)], description=messages.FOR_ALL)
 async def add_tag_to_image(image_id: int, tag: str, db: Session = Depends(get_db)):
     result = await TagServices.add_tag_to_image(image_id, tag, db)
