@@ -28,6 +28,7 @@ celery = "*"
 qrcode = "*"
 pytest-asyncio = "*"
 fastapi-filter = "*"
+requests = "*"
 
 [dev-packages]
 sphinx = "*"
