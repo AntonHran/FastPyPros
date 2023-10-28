@@ -1,5 +1,7 @@
 # import os
 # import sys
+# import base64
+# import binascii
 import time
 from ipaddress import ip_address
 from typing import Callable
@@ -8,20 +10,24 @@ import redis.asyncio as redis
 import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+# from starlette.authentication import AuthenticationBackend, AuthenticationError, AuthCredentials, SimpleUser
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+# from starlette.authentication import AuthenticationBackend
+# from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from fastapi_limiter import FastAPILimiter
 
-
 # SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # sys.path.append(os.path.dirname(SCRIPT_DIR))
-
+# from src.repositories.users import AuthServices
 from src.database.connection import get_db
+# from src.database.models import BanList
 from src.routes import images, auth, users, rating, images_tags, images_comments, images_search, users_accounts
 from src.conf.config import settings
 from src.services.tasks import remove_tokens
+# from src.conf import messages
 
 
 app = FastAPI()
@@ -103,6 +109,72 @@ async def custom_middleware(request: Request, call_next: Callable):
     return response
 
 
+'''class BasicAuthBackend(AuthenticationBackend):
+    async def authenticate(self, conn):
+        if "Authorization" not in conn.headers:
+            return
+
+        auth = conn.headers["Authorization"]
+        try:
+            scheme, credentials = auth.split()
+            if scheme.lower() != 'basic':
+                return
+            decoded = base64.b64decode(credentials).decode("ascii")
+        except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
+            raise AuthenticationError('Invalid basic auth credentials')
+
+        username, _, password = decoded.partition(":")
+        # TODO: You'd want to verify the username and password here.
+        return AuthCredentials(["authenticated"]), SimpleUser(username)
+        async def authenticate(self, request):
+            # This function is inherited from the base class and called by some other class
+            if "Authorization" not in request.headers:
+                return
+        
+            auth = request.headers["Authorization"]
+            try:
+                scheme, token = auth.split()
+                if scheme.lower() != "bearer":
+                    return
+                decoded = jwt.decode(
+                    token,
+                    settings.JWT_SECRET,
+                    algorithms=[settings.JWT_ALGORITHM],
+                    options={"verify_aud": False},
+                )
+            except (ValueError, UnicodeDecodeError, JWTError) as exc:
+                raise AuthenticationError("Invalid JWT Token.")
+        
+            username: str = decoded.get("sub")
+            token_data = TokenData(username=username)
+            # This is little hack rather making a generator function for get_db
+            db = LocalSession()
+            user = User.objects(db).filter(User.id == token_data.username).first()
+            # We must close the connection
+            db.close()
+            if user is None:
+                raise AuthenticationError("Invalid JWT Token.")
+            return auth, user
+
+
+@app.middleware("http")
+async def check_user_ban_status(request: Request, call_next: Callable):
+    # Отримайте поточного користувача, наприклад, за допомогою вашої функції get_current_user.
+    # Переконайтеся, що ця функція повертає об'єкт користувача із полем "is_banned".
+    db = next(get_db())
+    ac_l = request.user
+    # baned_access = await AuthServices.check_ban_list(request.user.a, db)
+    if ac_l:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content=messages.BAN)
+    # if request.user.is_banned:
+        # raise HTTPException(status_code=403, detail="Ваш обліковий запис заблоковано.")
+    response = await call_next(request)
+    return response
+
+
+app.add_middleware(AuthenticationMiddleware, backend=BasicAuthBackend)
+'''
+
 @app.get("/")
 async def root():
     """
@@ -146,4 +218,4 @@ app.include_router(images_search.router, prefix="/api")
 
 
 if __name__ == '__main__':
-    uvicorn.run("app_main:app", reload=True)
+    uvicorn.run("main:app", reload=True)

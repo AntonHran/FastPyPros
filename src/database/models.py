@@ -91,6 +91,7 @@ class Image(BaseModel):
         result = db.query(query).filter(Rating.image_id == self.id).first()
         if result[0]:
             return float(result[0])
+        return 0
 
 
 class Comment(BaseModel):

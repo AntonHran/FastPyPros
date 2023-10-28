@@ -8,6 +8,7 @@ from src.database.models import User, Account, BanList
 from src.schemes.users import UserModel
 from src.schemes.account import AccountModel, AccountResponse
 from src.services.cloud_image import CloudImage
+from src.services.ban_list_redis import auth_ban_list
 
 
 class AccountServices:
@@ -108,21 +109,35 @@ class UserServices:
             CloudImage.remove_folder(user.username)
         new_record = BanList(access_token=user.access_token, reason=reason)
         db.add(new_record)
+        # user.confirmed = False
         db.commit()
+        ban_list = await get_ban_list(db)
+        await auth_ban_list.set_ban_list(ban_list)
+        # db.refresh(user)
         return user
 
     @staticmethod
     async def search(filter_by: str, db: Session):
-        result = db.query(Account.username).filter(Account.images_quantity != 0).distinct().all()
-        users = db.query(User).filter(User.username.in_(result)).order_by(getattr(User, filter_by)).all()
+        result = db.query(Account).all()
+        res = [await form_response(rec) for rec in result]
+        res = [rec.username for rec in res if rec.images_quantity > 0]
+        users = db.query(User).filter(User.username.in_(res)).order_by(getattr(User, filter_by)).all()
         return users
+
+
+async def get_ban_list(db: Session):
+    ban_list = db.query(BanList).all()
+    return ban_list
 
 
 class AuthServices:
     @staticmethod
     async def check_ban_list(user_id: int, db: Session):
         user = db.query(User).filter_by(id=user_id).first()
-        return db.query(BanList).filter_by(access_token=user.access_token).first()
+        ban_list = await auth_ban_list.get_ban_list()
+        if user.access_token in [b.access_token for b in ban_list]:
+            return True
+        # db.query(BanList).filter_by(access_token=user.access_token).first()
 
     @staticmethod
     async def get_user_by_email(email: str, db: Session) -> User | None:

@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from src.database.connection import get_db
 from src.repositories.images import ImageServices
-from src.database.models import User
+from src.repositories.users import AuthServices
+from src.database.models import User, UserRole
 from src.services.auth import auth_user
 from src.schemes.images import ImageResponse
 from src.schemes.images import ImageUploadModel
@@ -33,8 +34,12 @@ async def upload_file(file: UploadFile, description: str,
 @router.get('/{image_id}', response_model=ImageResponse,
             status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
-async def get_image(image_id: int, db: Session = Depends(get_db)):
-
+async def get_image(image_id: int,
+                    current_user: User = Depends(auth_user.get_current_user),
+                    db: Session = Depends(get_db)):
+    baned_access = await AuthServices.check_ban_list(current_user.id, db)
+    if baned_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=messages.BAN)
     result = await ImageServices.get_image(image_id, db)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
@@ -45,7 +50,9 @@ async def get_image(image_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_200_OK, dependencies=[Depends(allowed_roles.all_users)],
             description=messages.FOR_ALL)
 async def get_images(current_user: User = Depends(auth_user.get_current_user), db: Session = Depends(get_db)):
-
+    baned_access = await AuthServices.check_ban_list(current_user.id, db)
+    if baned_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=messages.BAN)
     images = await ImageServices.get_all_images(current_user.id, db)
     if not images:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.NOT_FOUND)
@@ -59,9 +66,10 @@ async def update_description(image_id: int, description: str,
                              current_user: User = Depends(auth_user.get_current_user),
                              db: Session = Depends(get_db)):
     user_image = await ImageServices.check_image_owner(image_id, current_user, db)
-    if not user_image and current_user.roles == "admin":
+    print(current_user.roles)
+    if not user_image and current_user.roles == UserRole.admin:
         return await ImageServices.update_description(image_id, description, db)
-    if not user_image and current_user.roles != "admin":
+    if not user_image and current_user.roles != UserRole.admin:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.NOT_YOUR_IMAGE)
     image = await ImageServices.update_description(image_id, description, db)
     return image

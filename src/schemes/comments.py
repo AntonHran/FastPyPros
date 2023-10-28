@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class CommentModel(BaseModel):
     image_id: int
-    content: str = Field(max_length=265)
+    content: str = Field(min_length=2, max_length=265)
 
 
 class CommentResponse(BaseModel):

@@ -4,10 +4,15 @@ from fastapi_filter.contrib.sqlalchemy import Filter
 
 
 class SearchModel(Filter):
-    tags: Optional[str]
-    description: Optional[str] | None
-    date: Optional[str] | None
-    rate: Optional[float] | None
+    tags: Optional[str] | None = None
+    description: Optional[str] | None = None
+
+
+class SortModel(Filter):
+    created_at: Optional[bool] = False
+    # date_desc: Optional[bool] | None = False
+    rating: Optional[bool] | None = False
+    # rate_desc: Optional[float] | None = None
 
 
 class SearchResponse(BaseModel):
