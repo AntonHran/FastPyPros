@@ -185,7 +185,10 @@ class CurrentUser:
     SECRET_KEY_A = settings.secret_key_a
     ALGORITHM = settings.algorithm
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-    red = redis.Redis(host=settings.redis_host, port=settings.redis_port, db=0)
+    red = redis.Redis(host=settings.redis_host,
+                      port=settings.redis_port,
+                      password=settings.redis_password,
+                      db=0)
 
     async def get_current_user(
         self, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)

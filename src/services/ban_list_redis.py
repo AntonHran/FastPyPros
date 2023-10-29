@@ -13,7 +13,10 @@ class CurrentBanList:
     '''SECRET_KEY_A = settings.secret_key_a
     ALGORITHM = settings.algorithm
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")'''
-    red = redis.Redis(host=settings.redis_host, port=settings.redis_port, db=1)
+    red = redis.Redis(host=settings.redis_host,
+                      port=settings.redis_port,
+                      password=settings.redis_password,
+                      db=1)
     db: Session = SessionLocal()  # = Depends(get_db)
 
     async def get_ban_list(self):

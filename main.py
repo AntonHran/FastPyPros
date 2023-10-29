@@ -9,7 +9,7 @@ from typing import Callable
 import redis.asyncio as redis
 import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 # from starlette.authentication import AuthenticationBackend, AuthenticationError, AuthCredentials, SimpleUser
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -18,6 +18,8 @@ from sqlalchemy.exc import SQLAlchemyError
 # from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from fastapi_limiter import FastAPILimiter
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 # SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -39,6 +41,7 @@ async def startup():
     r_t = await remove_tokens(db)
     print(r_t)
     red = await redis.Redis(host=settings.redis_host, port=settings.redis_port,
+                            password=settings.redis_password,
                             db=0, encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(red)
 
@@ -46,6 +49,7 @@ async def startup():
 origins = [
     "http://127.0.0.1:5500",
     "http://localhost:5500",
+    "https://app.koyeb.com/",
     ]
 
 app.add_middleware(
@@ -62,6 +66,9 @@ ALLOWED_IPS = [
     ip_address('172.16.0.0'),
     ip_address("127.0.0.1"),
     ]
+
+templates = Jinja2Templates(directory="src/services/templates")
+app.mount("/src/services/static", StaticFiles(directory="src/services/static"), name="static")
 
 
 def get_client_ip(request):
@@ -175,8 +182,9 @@ async def check_user_ban_status(request: Request, call_next: Callable):
 app.add_middleware(AuthenticationMiddleware, backend=BasicAuthBackend)
 '''
 
-@app.get("/")
-async def root():
+
+@app.get("/", response_class=HTMLResponse, description="Main Page")
+async def root(request: Request):
     """
     The root function is a simple HTTP endpoint that returns a JSON object
     containing the message &quot;Here your contacts!&quot;.
@@ -184,7 +192,10 @@ async def root():
     :return: A dict, so we can use the json() middleware
     :doc-author: Trelent
     """
-    return {"message": "Here your images!"}
+    # return {"message": "Here your images!"}
+    return templates.TemplateResponse(
+        "index.html", {"request": request, "title": "PhotoShare App"}
+    )
 
 
 @app.get("/api/healthchecker")
