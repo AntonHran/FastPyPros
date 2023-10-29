@@ -16,7 +16,7 @@ class CurrentBanList:
     red = redis.Redis(host=settings.redis_host,
                       port=settings.redis_port,
                       password=settings.redis_password,
-                      db=1)
+                      db=0)
     db: Session = SessionLocal()  # = Depends(get_db)
 
     async def get_ban_list(self):
