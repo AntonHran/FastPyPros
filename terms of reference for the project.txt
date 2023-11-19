@@ -1,0 +1,56 @@
+The main functionality for the REST API is implemented on FastAPI
+
+Authentication
+
+We create an authentication mechanism. We use JWT tokens
+Users have three roles. Regular user, moderator, and administrator. The first user in the system is always the administrator
+To implement different levels of access (regular user, moderator and administrator), we can use FastAPI decorators to validate the token and user role.
+
+Work with photos
+
+Users can upload images with description (POST).
+Users can delete photos (DELETE).
+Users can edit the photo description (PUT).
+Users can get a picture using a unique link (GET).
+Ability to add up to five tags under the photo. Adding a tag is optional when uploading a photo.
+Tags are unique for the entire application. The tag is sent to the server by name. If such a tag does not exist, then it is created if it exists, then it is assumed that a tag with this name exists for the photo.
+Users can perform basic operations on images, which the Cloudinary service (https://cloudinary.com/documentation/image_transformations) allows. It is possible to select a limited set of transformations on images for your application with Cloudinary.
+Users can create a link to the transformed image to view the image as a URL and QR code (https://pypi.org/project/qrcode/). POST operation, as a separate reference is created to the transformed image, which is stored in the database
+The created links are stored on the server and through the mobile phone we can scan the QR-code and see the image
+Administrators can do all CRUD operations with users' photos
+
+
+Comment
+
+Under each photo, there is a block with comments. Users can comment on each other's photos
+The user can edit his comment, but not delete it.
+Admins and moderators can delete comments.
+For comments, it is necessary to store the time of creation and the time of editing the comment in the database. To implement comment functionality, we can use a one-to-many relationship between photos and comments in the database. To temporarily label comments, use the "created_at" and "updated_at" columns in the comment table.
+
+
+Additional functionality
+
+Create a route for a user profile by his unique username. All user information should be returned. Name, when registered, number of uploaded photos, etc.
+The user can edit information about himself and see information about himself. These should be different routes with the user profile. The profile is for all users, and the information for yourself is something that can be edited
+The administrator can make users inactive (ban). Inactive users cannot enter the application
+
+
+Additionally, if possible, implement the following tasks, if time permits.
+
+Implement a mechanism for user exit from the application via logout. The access token must be added to the blocklist for the duration of its existence.
+Rating
+
+Users can rate the photo from one to five stars. The rating is calculated as the average value of all users' ratings.
+You can rate a photo for a user only once.
+It is not possible to rate your photos.
+Moderators and administrators can view and delete user ratings.
+
+Search and filtering
+
+The user can search for images by keyword or tag. After searching, the user can filter the results by rating or date added.
+Moderators and administrators can search and filter by users who have added photos.
+
+
+After performing the main functionality
+Cover the application with unit tests, achieve more than 90% coverage
+Deploy the application to some cloud service, the recommendation is Koyeb.
