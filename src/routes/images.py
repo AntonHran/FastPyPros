@@ -81,10 +81,10 @@ async def update_description(image_id: int, description: str,
 async def delete_image(image_id: int, current_user: User = Depends(auth_user.get_current_user),
                        db: Session = Depends(get_db)):
     user_image = await ImageServices.check_image_owner(image_id, current_user, db)
-    if not user_image and current_user.roles == "admin":
+    if not user_image and current_user.roles == UserRole.admin:
         result = await ImageServices.delete_image(image_id, current_user.username, db)
         return result
-    if not user_image and current_user.roles != "admin":
+    if not user_image and current_user.roles != UserRole.admin:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.NOT_YOUR_IMAGE)
     result = await ImageServices.delete_image(image_id, current_user.username, db)
     return result
